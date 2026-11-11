@@ -152,18 +152,37 @@
 <footer class="bg-slate-800 text-slate-300 text-center py-3 text-xs mt-6">
     <p>Future Minds Academy © 2026 | Made with ❤️ for Young Learners</p>
 </footer>
-
 <script>
 /* ============================================================
-   FUTURE MINDS Academy - APPLICATION LOGIC
+   FUTURE MINDS ACADEMY — DAILY LEARNING ENGINE
+   हर दिन नया कंटेंट • 5+ प्रश्न • Rank System • Streak
    ============================================================ */
 
 let currentTrack = 1;
 let currentClass = 1;
 let currentLang = 'hi';
 let userTotalPoints = 0;
+let todayProgress = { tasksCompleted: 0, quizPassed: false, quizScore: 0, quizTotal: 0, rank: '-' };
+let dailyStreak = 0;
+let lastActiveDate = null;
 
-/* ---------- LANGUAGE HELPER ---------- */
+/* ---------- HELPERS ---------- */
+function todayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function dayOfYear() {
+    const d = new Date();
+    const start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000);
+}
+function getRank(pct) {
+    if (pct >= 90) return '🏆 Master';
+    if (pct >= 75) return '🥇 Advanced';
+    if (pct >= 60) return '🥈 Intermediate';
+    if (pct >= 40) return '🥉 Beginner';
+    return '📚 Learner';
+}
 function t(hi, en) { return currentLang === 'hi' ? hi : en; }
 
 function toggleLanguage() {
@@ -174,8 +193,12 @@ function toggleLanguage() {
     updateBanner();
 }
 
-/* ---------- CURRICULUM DATABASE ---------- */
-/* Each lesson: { title: {hi,en}, desc: {hi,en}, youtube, read: {hi,en} } */
+/* ============================================================
+   CURRICULUM DATABASE
+   Structure: track → class → { lessons[], tasksPool[][], quizPool[][] }
+   - tasksPool: array of daily sets (7 days rotation)
+   - quizPool: array of daily quiz sets (7 days rotation, each ≥5 questions)
+   ============================================================ */
 
 const curriculum = {
     1: {
@@ -183,340 +206,1177 @@ const curriculum = {
         desc: { hi: "खेल-खेल में पैसों की बचत, कंप्यूटर के अंग, AI और कोडिंग की बुनियादी समझ सीखें।",
                 en: "Learn saving money, computer parts, AI basics, and coding in a fun way." },
         classes: {
+
             1: {
                 title: { hi: "कक्षा 1: पैसों की पहचान और गुल्लक", en: "Class 1: Money Recognition & Piggy Bank" },
                 lessons: [
-                    { title: {hi:"सिक्के और नोट पहचानें", en:"Recognize Coins & Notes"},
-                      desc: {hi:"₹1, ₹2, ₹5, ₹10, ₹20, ₹50, ₹100, ₹500 और ₹2000 के नोट।", en:"Learn Indian currency notes and coins."},
-                      youtube: "https://www.youtube.com/results?search_query=indian+currency+notes+for+kids+hindi",
-                      read: {hi:"भारत में पैसे को 'रुपया' कहते हैं। हम रोज़ कुछ चीज़ें खरीदने के लिए पैसे का उपयोग करते हैं। सिक्के (Coins) और नोट (Notes) पैसे के रूप हैं। जब हमें कोई चीज़ खरीदनी होती है, तो हम दुकानदार को पैसे देते हैं।\n\nगुल्लक (Piggy Bank) एक छोटा बक्सा है जिसमें हम अपने बचे हुए पैसे जमा करते हैं। रोज़ थोड़ा-थोड़ा पैसा डालने से महीने के अंत में बड़ी रकम बन जाती है!",
-                            en:"In India, money is called 'Rupee'. We use money daily to buy things. Coins and Notes are forms of money. When we buy something, we give money to the shopkeeper.\n\nA piggy bank is a small box where we save leftover money. Saving a little every day creates a big amount by the end of the month!"} },
-                    { title: {hi:"बचत क्या है?", en:"What is Saving?"},
-                      desc: {hi:"बचत का मतलब है - जो पैसा आज नहीं चाहिए, उसे भविष्य के लिए रखना।", en:"Saving means keeping today's spare money for the future."},
-                      youtube: "https://www.youtube.com/results?search_query=savings+for+kids+hindi",
-                      read: {hi:"बचत (Saving) का मतलब है - जो पैसा अभी जरूरी नहीं है, उसे भविष्य के लिए रख लेना। जब हम बचत करते हैं तो बड़ी चीज़ें खरीद सकते हैं और मुश्किल समय में काम आता है।",
-                            en:"Saving means keeping money that is not needed now for future use. When we save, we can buy bigger things later and it helps in tough times."} }
+                    { title:{hi:"सिक्के और नोट पहचानें", en:"Recognize Coins & Notes"},
+                      desc:{hi:"₹1, ₹2, ₹5, ₹10, ₹20, ₹50, ₹100 के नोट।", en:"Learn Indian currency notes and coins."},
+                      youtube:"https://www.youtube.com/results?search_query=indian+currency+notes+for+kids+hindi",
+                      read:{hi:"भारत में पैसे को 'रुपया' कहते हैं। हम रोज़ कुछ चीज़ें खरीदने के लिए पैसे का उपयोग करते हैं। सिक्के (Coins) और नोट (Notes) पैसे के रूप हैं।\n\nगुल्लक (Piggy Bank) एक छोटा बक्सा है जिसमें हम अपने बचे हुए पैसे जमा करते हैं।",
+                            en:"In India, money is called 'Rupee'. Coins and Notes are forms of money.\n\nA piggy bank is a small box where we save leftover money."} },
+                    { title:{hi:"बचत क्या है?", en:"What is Saving?"},
+                      desc:{hi:"जो पैसा आज नहीं चाहिए, उसे भविष्य के लिए रखना।", en:"Keeping today's spare money for the future."},
+                      youtube:"https://www.youtube.com/results?search_query=savings+for+kids+hindi",
+                      read:{hi:"बचत (Saving) का मतलब है - जो पैसा अभी जरूरी नहीं है, उसे भविष्य के लिए रख लेना।",
+                            en:"Saving means keeping money not needed now for the future."} }
                 ],
-                tasks: [
-                    { hi: "अपनी गुल्लक में आज ₹5 जमा करें और गिनें कितने पैसे हो गए।", en: "Save ₹5 in your piggy bank today and count the total." },
-                    { hi: "मम्मी-पापा से पूछें - घर में पैसा कहाँ से आता है?", en: "Ask your parents - where does money come from?" },
-                    { hi: "₹1, ₹2, ₹5 के सिक्कों को पहचानें।", en: "Identify ₹1, ₹2, ₹5 coins." }
+                // 7 दिन के tasks — हर दिन अलग set
+                tasksPool: [
+                    [{hi:"गुल्लक में ₹5 डालें और गिनें कितने हो गए।",en:"Add ₹5 to piggy bank and count total."},
+                     {hi:"मम्मी से पूछें - पैसा कहाँ से आता है?",en:"Ask mom - where does money come from?"},
+                     {hi:"₹1, ₹2, ₹5 के सिक्के पहचानें।",en:"Identify ₹1, ₹2, ₹5 coins."}],
+                    [{hi:"आज ₹3 बचाएं।",en:"Save ₹3 today."},
+                     {hi:"₹10 का नोट और ₹20 का नोट दिखाएं।",en:"Show ₹10 and ₹20 notes."},
+                     {hi:"गुल्लक क्या है - बोलकर बताएं।",en:"Say what a piggy bank is."}],
+                    [{hi:"₹50 का नोट पहचानें।",en:"Identify ₹50 note."},
+                     {hi:"आज ₹5 बचाएं, फालतू चीज़ न खरीदें।",en:"Save ₹5 today, don't buy unnecessary."},
+                     {hi:"पापा से पूछें - बैंक क्या है?",en:"Ask dad - what is a bank?"}],
+                    [{hi:"₹100 का नोट पहचानें।",en:"Identify ₹100 note."},
+                     {hi:"गुल्लक में ₹10 डालें।",en:"Put ₹10 in piggy bank."},
+                     {hi:"3 तरीके बताएं पैसे कहाँ खर्च होते हैं।",en:"Name 3 ways money is spent."}],
+                    [{hi:"आज ₹2 बचाएं।",en:"Save ₹2 today."},
+                     {hi:"₹5 के सिक्के से ₹2 का सामान खरीदें, कितने बचे?",en:"Buy ₹2 item with ₹5 coin, how much left?"},
+                     {hi:"बचत के 2 फायदे बताएं।",en:"Tell 2 benefits of saving."}],
+                    [{hi:"आज ₹7 बचाएं।",en:"Save ₹7 today."},
+                     {hi:"पैसे से जुड़ी एक कहानी सुनें।",en:"Listen to a story about money."},
+                     {hi:"गुल्लक में कुल कितने पैसे हैं - गिनें।",en:"Count total money in piggy bank."}],
+                    [{hi:"आज ₹5 बचाएं।",en:"Save ₹5 today."},
+                     {hi:"सप्ताह भर में कितने पैसे बचाए - जोड़ें।",en:"Add how much saved this week."},
+                     {hi:"बचत का एक नारा बनाएं।",en:"Make a slogan about saving."}]
                 ],
-                quiz: [
-                    { q: {hi:"हम अपनी बची हुई रेज़गारी कहाँ जमा करते हैं?", en:"Where do we save our leftover coins?"},
-                      options: [{hi:"कूड़ेदान में", en:"In dustbin"}, {hi:"गुल्लक में", en:"In piggy bank"}, {hi:"खिलौनों के डिब्बे में", en:"In toy box"}],
-                      correct: 1,
-                      exp: {hi:"गुल्लक में पैसे जमा करने से बचत की अच्छी आदत बनती है!", en:"Saving in a piggy bank builds a good saving habit!"} },
-                    { q: {hi:"भारत में पैसे को क्या कहते हैं?", en:"What is money called in India?"},
-                      options: [{hi:"डॉलर", en:"Dollar"}, {hi:"रुपया", en:"Rupee"}, {hi:"येन", en:"Yen"}],
-                      correct: 1,
-                      exp: {hi:"भारत की करेंसी 'भारतीय रुपया' है।", en:"India's currency is the Indian Rupee."} }
+                // 7 दिन के quiz — हर दिन 5 प्रश्न
+                quizPool: [
+                    [{q:{hi:"हम बची हुई रेज़गारी कहाँ जमा करते हैं?",en:"Where do we save leftover coins?"},
+                      options:[{hi:"कूड़ेदान में",en:"Dustbin"},{hi:"गुल्लक में",en:"Piggy bank"},{hi:"खिलौनों में",en:"Toy box"},{hi:"किताब में",en:"Book"}],correct:1,
+                      exp:{hi:"गुल्लक में पैसे जमा करने से बचत की आदत बनती है।",en:"Saving in piggy bank builds habit."}},
+                     {q:{hi:"भारत में पैसे को क्या कहते हैं?",en:"What is money called in India?"},
+                      options:[{hi:"डॉलर",en:"Dollar"},{hi:"रुपया",en:"Rupee"},{hi:"येन",en:"Yen"},{hi:"पाउंड",en:"Pound"}],correct:1,
+                      exp:{hi:"भारत की करेंसी रुपया है।",en:"India's currency is Rupee."}},
+                     {q:{hi:"नोट किस कागज़ से बनते हैं?",en:"Notes are made of which paper?"},
+                      options:[{hi:"सादा कागज़",en:"Plain paper"},{hi:"खास सुरक्षित कागज़",en:"Special security paper"},{hi:"टिश्यू",en:"Tissue"},{hi:"कार्डबोर्ड",en:"Cardboard"}],correct:1,
+                      exp:{hi:"नोट खास सुरक्षित कागज़ से बनते हैं।",en:"Notes are made of special security paper."}},
+                     {q:{hi:"₹5 के सिक्के से ₹2 का सामान खरीदें तो कितने बचेंगे?",en:"Buy ₹2 item with ₹5 coin, how much left?"},
+                      options:[{hi:"₹1",en:"₹1"},{hi:"₹2",en:"₹2"},{hi:"₹3",en:"₹3"},{hi:"₹5",en:"₹5"}],correct:2,
+                      exp:{hi:"5-2=3 रुपये बचेंगे।",en:"5-2=₹3 left."}},
+                     {q:{hi:"बचत करने से क्या होता है?",en:"What does saving do?"},
+                      options:[{hi:"पैसा कम होता है",en:"Money reduces"},{hi:"भविष्य में काम आता है",en:"Helps in future"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पैसा खो जाता है",en:"Money lost"}],correct:1,
+                      exp:{hi:"बचाया पैसा भविष्य में काम आता है।",en:"Saved money helps in future."}}],
+                    [{q:{hi:"₹1,000 कितने ₹100 के बराबर है?",en:"₹1,000 equals how many ₹100?"},
+                      options:[{hi:"5",en:"5"},{hi:"10",en:"10"},{hi:"20",en:"20"},{hi:"50",en:"50"}],correct:1,
+                      exp:{hi:"1000÷100=10",en:"1000÷100=10"}},
+                     {q:{hi:"गुल्लक में पैसे क्यों डालते हैं?",en:"Why put money in piggy bank?"},
+                      options:[{hi:"फेंकने के लिए",en:"To throw"},{hi:"बचत के लिए",en:"To save"},{hi:"खेलने के लिए",en:"To play"},{hi:"दिखाने के लिए",en:"To show"}],correct:1,
+                      exp:{hi:"बचत के लिए।",en:"To save."}},
+                     {q:{hi:"सबसे छोटा सिक्का कौन सा है?",en:"Smallest coin?"},
+                      options:[{hi:"₹1",en:"₹1"},{hi:"₹2",en:"₹2"},{hi:"₹5",en:"₹5"},{hi:"₹10",en:"₹10"}],correct:0,
+                      exp:{hi:"₹1 सबसे छोटा सिक्का है।",en:"₹1 is smallest."}},
+                     {q:{hi:"₹50 में कितने ₹10 आते हैं?",en:"How many ₹10 in ₹50?"},
+                      options:[{hi:"3",en:"3"},{hi:"4",en:"4"},{hi:"5",en:"5"},{hi:"10",en:"10"}],correct:2,
+                      exp:{hi:"50÷10=5",en:"50÷10=5"}},
+                     {q:{hi:"अगर आपको ₹20 मिलें और ₹5 खर्च करें, कितने बचें?",en:"Get ₹20, spend ₹5, what's left?"},
+                      options:[{hi:"₹5",en:"₹5"},{hi:"₹10",en:"₹10"},{hi:"₹15",en:"₹15"},{hi:"₹25",en:"₹25"}],correct:2,
+                      exp:{hi:"20-5=15",en:"20-5=15"}}],
+                    [{q:{hi:"बैंक क्या है?",en:"What is a bank?"},
+                      options:[{hi:"खेल का मैदान",en:"Playground"},{hi:"पैसे रखने की सुरक्षित जगह",en:"Safe place for money"},{hi:"स्कूल",en:"School"},{hi:"दुकान",en:"Shop"}],correct:1,
+                      exp:{hi:"बैंक पैसे की सुरक्षित जगह है।",en:"Bank is safe for money."}},
+                     {q:{hi:"₹100 में कितने ₹20 आते हैं?",en:"How many ₹20 in ₹100?"},
+                      options:[{hi:"2",en:"2"},{hi:"4",en:"4"},{hi:"5",en:"5"},{hi:"10",en:"10"}],correct:2,
+                      exp:{hi:"100÷20=5",en:"100÷20=5"}},
+                     {q:{hi:"पैसे कहाँ से आते हैं?",en:"Where does money come from?"},
+                      options:[{hi:"पेड़ से",en:"Trees"},{hi:"काम करने से",en:"Work"},{hi:"आसमान से",en:"Sky"},{hi:"खेल से",en:"Play"}],correct:1,
+                      exp:{hi:"मेहनत/काम से पैसे मिलते हैं।",en:"Money comes from work."}},
+                     {q:{hi:"सबसे बड़ा नोट कौन सा है (भारत में)?",en:"Largest note in India?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹500",en:"₹500"},{hi:"₹2000",en:"₹2000"},{hi:"₹200",en:"₹200"}],correct:2,
+                      exp:{hi:"₹2000 सबसे बड़ा नोट है।",en:"₹2000 is largest note."}},
+                     {q:{hi:"गुल्लक खोलने का सही समय?",en:"Right time to open piggy bank?"},
+                      options:[{hi:"रोज़",en:"Daily"},{hi:"जब जरूरत हो",en:"When needed"},{hi:"कभी नहीं",en:"Never"},{hi:"हर घंटे",en:"Hourly"}],correct:1,
+                      exp:{hi:"जब सच में जरूरत हो तब।",en:"Only when truly needed."}}],
+                    [{q:{hi:"बचत क्यों जरूरी है?",en:"Why is saving needed?"},
+                      options:[{hi:"पैसा बढ़ाने के लिए",en:"To grow money"},{hi:"मुश्किल समय के लिए",en:"For tough times"},{hi:"सपने पूरे करने के लिए",en:"To fulfill dreams"},{hi:"सभी सही",en:"All correct"}],correct:3,
+                      exp:{hi:"सभी कारण सही हैं।",en:"All are correct."}},
+                     {q:{hi:"₹500 में कितने ₹50 आते हैं?",en:"How many ₹50 in ₹500?"},
+                      options:[{hi:"5",en:"5"},{hi:"10",en:"10"},{hi:"20",en:"20"},{hi:"50",en:"50"}],correct:1,
+                      exp:{hi:"500÷50=10",en:"500÷50=10"}},
+                     {q:{hi:"अगर रोज़ ₹2 बचाएं, 10 दिन में कितने?",en:"Save ₹2 daily, in 10 days?"},
+                      options:[{hi:"₹10",en:"₹10"},{hi:"₹20",en:"₹20"},{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"}],correct:1,
+                      exp:{hi:"2×10=20",en:"2×10=20"}},
+                     {q:{hi:"चॉकलेट खरीदना क्या है?",en:"Buying chocolate is?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"बचत",en:"Saving"},{hi:"कमाई",en:"Income"}],correct:1,
+                      exp:{hi:"चॉकलेट इच्छा है।",en:"Chocolate is a want."}},
+                     {q:{hi:"बच्चों को पैसे की समझ क्यों सीखनी चाहिए?",en:"Why kids should learn money?"},
+                      options:[{hi:"समझदारी से खर्च करने के लिए",en:"To spend wisely"},{hi:"बर्बाद करने के लिए",en:"To waste"},{hi:"दिखाने के लिए",en:"To show"},{hi:"कोई कारण नहीं",en:"No reason"}],correct:0,
+                      exp:{hi:"समझदारी से खर्च करने के लिए।",en:"To spend wisely."}}],
+                    [{q:{hi:"बैंक हमें पैसे पर क्या देता है?",en:"Bank gives what on our money?"},
+                      options:[{hi:"दंड",en:"Penalty"},{hi:"ब्याज",en:"Interest"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"नुकसान",en:"Loss"}],correct:1,
+                      exp:{hi:"बैंक ब्याज देता है।",en:"Bank gives interest."}},
+                     {q:{hi:"₹1000 में कितने ₹100 आते हैं?",en:"How many ₹100 in ₹1000?"},
+                      options:[{hi:"5",en:"5"},{hi:"10",en:"10"},{hi:"15",en:"15"},{hi:"20",en:"20"}],correct:1,
+                      exp:{hi:"1000÷100=10",en:"1000÷100=10"}},
+                     {q:{hi:"नोट पर किसकी तस्वीर होती है (सबसे आम)?",en:"Whose photo on notes (most common)?"},
+                      options:[{hi:"नेहरू",en:"Nehru"},{hi:"गांधी",en:"Gandhi"},{hi:"टैगोर",en:"Tagore"},{hi:"पटेल",en:"Patel"}],correct:1,
+                      exp:{hi:"महात्मा गांधी की तस्वीर है।",en:"Mahatma Gandhi's photo."}},
+                     {q:{hi:"पैसे बर्बाद करना सही है?",en:"Is wasting money right?"},
+                      options:[{hi:"हाँ",en:"Yes"},{hi:"नहीं",en:"No"},{hi:"कभी-कभी",en:"Sometimes"},{hi:"हमेशा",en:"Always"}],correct:1,
+                      exp:{hi:"नहीं, पैसे बर्बाद नहीं करने चाहिए।",en:"No, don't waste money."}},
+                     {q:{hi:"₹5+₹5+₹10 = ?",en:"₹5+₹5+₹10 = ?"},
+                      options:[{hi:"₹15",en:"₹15"},{hi:"₹20",en:"₹20"},{hi:"₹25",en:"₹25"},{hi:"₹30",en:"₹30"}],correct:1,
+                      exp:{hi:"5+5+10=20",en:"5+5+10=20"}}],
+                    [{q:{hi:"बचत का सबसे अच्छा तरीका?",en:"Best way to save?"},
+                      options:[{hi:"रोज़ थोड़ा-थोड़ा",en:"Little daily"},{hi:"महीने में एक बार",en:"Once a month"},{hi:"साल में एक बार",en:"Once a year"},{hi:"कभी नहीं",en:"Never"}],correct:0,
+                      exp:{hi:"रोज़ थोड़ा-थोड़ा बचाना सबसे अच्छा है।",en:"Little daily is best."}},
+                     {q:{hi:"₹200 में कितने ₹20 आते हैं?",en:"How many ₹20 in ₹200?"},
+                      options:[{hi:"5",en:"5"},{hi:"10",en:"10"},{hi:"15",en:"15"},{hi:"20",en:"20"}],correct:1,
+                      exp:{hi:"200÷20=10",en:"200÷20=10"}},
+                     {q:{hi:"दवाई खरीदना क्या है?",en:"Buying medicine is?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"शौक",en:"Hobby"},{hi:"मज़ा",en:"Fun"}],correct:0,
+                      exp:{hi:"दवाई जरूरत है।",en:"Medicine is need."}},
+                     {q:{hi:"अगर ₹50 में से ₹15 खर्च करें, कितने बचें?",en:"₹50 - ₹15 = ?"},
+                      options:[{hi:"₹25",en:"₹25"},{hi:"₹30",en:"₹30"},{hi:"₹35",en:"₹35"},{hi:"₹40",en:"₹40"}],correct:2,
+                      exp:{hi:"50-15=35",en:"50-15=35"}},
+                     {q:{hi:"बचत करने से भविष्य में क्या मिलता है?",en:"Saving gives what in future?"},
+                      options:[{hi:"परेशानी",en:"Trouble"},{hi:"सुरक्षा",en:"Security"},{hi:"नुकसान",en:"Loss"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,
+                      exp:{hi:"बचत भविष्य में सुरक्षा देती है।",en:"Saving gives future security."}}],
+                    [{q:{hi:"पॉकेट मनी का सही उपयोग क्या है?",en:"Right use of pocket money?"},
+                      options:[{hi:"सब खर्च करना",en:"Spend all"},{hi:"थोड़ा बचाना",en:"Save some"},{hi:"फेंकना",en:"Throw"},{hi:"दूसरों को देना",en:"Give to others"}],correct:1,
+                      exp:{hi:"थोड़ा बचाना चाहिए।",en:"Should save some."}},
+                     {q:{hi:"₹100+₹50+₹20 = ?",en:"₹100+₹50+₹20 = ?"},
+                      options:[{hi:"₹150",en:"₹150"},{hi:"₹170",en:"₹170"},{hi:"₹180",en:"₹180"},{hi:"₹200",en:"₹200"}],correct:1,
+                      exp:{hi:"100+50+20=170",en:"100+50+20=170"}},
+                     {q:{hi:"ATM से क्या निकालते हैं?",en:"What comes from ATM?"},
+                      options:[{hi:"खाना",en:"Food"},{hi:"पैसे",en:"Money"},{hi:"कपड़े",en:"Clothes"},{hi:"किताबें",en:"Books"}],correct:1,
+                      exp:{hi:"ATM से पैसे निकालते हैं।",en:"Money from ATM."}},
+                     {q:{hi:"क्या हर इच्छा पूरी करनी चाहिए?",en:"Should every want be fulfilled?"},
+                      options:[{hi:"हाँ",en:"Yes"},{hi:"नहीं, सोच-समझकर",en:"No, think wisely"},{hi:"हमेशा",en:"Always"},{hi:"कभी नहीं",en:"Never"}],correct:1,
+                      exp:{hi:"सोच-समझकर ही।",en:"Only after thinking."}},
+                     {q:{hi:"बचत का सबसे बड़ा दुश्मन क्या है?",en:"Biggest enemy of saving?"},
+                      options:[{hi:"मेहनत",en:"Hard work"},{hi:"फिजूलखर्ची",en:"Wasteful spending"},{hi:"पढ़ाई",en:"Study"},{hi:"खेल",en:"Play"}],correct:1,
+                      exp:{hi:"फिजूलखर्ची बचत खत्म करती है।",en:"Wasteful spending ruins savings."}}]
                 ]
             },
+
             2: {
-                title: { hi: "कक्षा 2: बचत की आदत और कंप्यूटर", en: "Class 2: Saving Habit & Computer Basics" },
+                title: { hi: "कक्षा 2: बचत और कंप्यूटर", en: "Class 2: Saving & Computer Basics" },
                 lessons: [
-                    { title: {hi:"कंप्यूटर के अंग", en:"Parts of a Computer"},
-                      desc: {hi:"मॉनिटर, कीबोर्ड, माउस, CPU - सब कुछ जानें।", en:"Learn Monitor, Keyboard, Mouse, CPU."},
-                      youtube: "https://www.youtube.com/results?search_query=parts+of+computer+for+kids+hindi",
-                      read: {hi:"कंप्यूटर एक मशीन है जो हमारी मदद करती है। इसके मुख्य भाग हैं:\n\n🖥️ मॉनिटर (Monitor) - स्क्रीन जिस पर हम देखते हैं\n⌨️ कीबोर्ड (Keyboard) - टाइप करने के लिए\n🖱️ माउस (Mouse) - कर्सर घुमाने और क्लिक करने के लिए\n🖲️ CPU (सेंट्रल प्रोसेसिंग यूनिट) - कंप्यूटर का दिमाग\n🔊 स्पीकर - आवाज़ सुनने के लिए",
-                            en:"A computer is a machine that helps us. Its main parts:\n\n🖥️ Monitor - Screen we look at\n⌨️ Keyboard - For typing\n🖱️ Mouse - To move cursor and click\n🖲️ CPU - The brain of computer\n🔊 Speaker - To hear sound"} },
-                    { title: {hi:"माउस और कीबोर्ड का उपयोग", en:"Using Mouse & Keyboard"},
-                      desc: {hi:"क्लिक, डबल क्लिक, टाइपिंग का अभ्यास करें।", en:"Practice click, double click, typing."},
-                      youtube: "https://www.youtube.com/results?search_query=mouse+keyboard+typing+for+kids+hindi",
-                      read: {hi:"माउस से हम कंप्यूटर में चीज़ें चुनते हैं। बाएँ बटन से क्लिक करते हैं। कीबोर्ड से हम अक्षर टाइप करते हैं। अपना नाम टाइप करके देखें!",
-                            en:"We select things on computer with mouse. Left button is used to click. Keyboard is used to type letters. Try typing your name!"} }
+                    { title:{hi:"कंप्यूटर के अंग", en:"Parts of a Computer"},
+                      desc:{hi:"मॉनिटर, कीबोर्ड, माउस, CPU।", en:"Monitor, Keyboard, Mouse, CPU."},
+                      youtube:"https://www.youtube.com/results?search_query=parts+of+computer+for+kids+hindi",
+                      read:{hi:"कंप्यूटर के मुख्य भाग:\n🖥️ मॉनिटर - स्क्रीन\n⌨️ कीबोर्ड - टाइपिंग\n🖱️ माउस - कर्सर\n🖲️ CPU - दिमाग\n🔊 स्पीकर - आवाज़",
+                            en:"Main parts:\n🖥️ Monitor - Screen\n⌨️ Keyboard - Typing\n🖱️ Mouse - Cursor\n🖲️ CPU - Brain\n🔊 Speaker - Sound"} },
+                    { title:{hi:"माउस और कीबोर्ड", en:"Mouse & Keyboard"},
+                      desc:{hi:"क्लिक और टाइपिंग का अभ्यास।", en:"Practice click & typing."},
+                      youtube:"https://www.youtube.com/results?search_query=mouse+keyboard+typing+for+kids+hindi",
+                      read:{hi:"माउस से चीज़ें चुनते हैं, कीबोर्ड से अक्षर टाइप करते हैं।",
+                            en:"Select with mouse, type letters with keyboard."} }
                 ],
-                tasks: [
-                    { hi: "आज ₹10 बचाएं - कोई फालतू चीज़ न खरीदें।", en: "Save ₹10 today - don't buy anything unnecessary." },
-                    { hi: "कीबोर्ड पर अपना पूरा नाम टाइप करें।", en: "Type your full name on the keyboard." },
-                    { hi: "माउस से कोई गेम खेलें और क्लिक का अभ्यास करें।", en: "Play a mouse game to practice clicking." }
+                tasksPool: [
+                    [{hi:"₹10 बचाएं।",en:"Save ₹10."},{hi:"कीबोर्ड पर नाम टाइप करें।",en:"Type your name."},{hi:"माउस से क्लिक का अभ्यास करें।",en:"Practice mouse click."}],
+                    [{hi:"₹15 बचाएं।",en:"Save ₹15."},{hi:"5 कंप्यूटर के अंगों के नाम बोलें।",en:"Say 5 computer part names."},{hi:"Notepad खोलकर 1 वाक्य टाइप करें।",en:"Type 1 sentence in Notepad."}],
+                    [{hi:"₹5 बचाएं।",en:"Save ₹5."},{hi:"CPU का काम बताएं।",en:"Tell CPU's job."},{hi:"माउस के 2 बटन के नाम बताएं।",en:"Name 2 mouse buttons."}],
+                    [{hi:"₹20 बचाएं।",en:"Save ₹20."},{hi:"मॉनिटर और TV में अंतर बताएं।",en:"Difference monitor & TV."},{hi:"कीबोर्ड पर अपना पता टाइप करें।",en:"Type your address on keyboard."}],
+                    [{hi:"₹8 बचाएं।",en:"Save ₹8."},{hi:"स्पीकर से क्या सुनते हैं?",en:"What do we hear from speaker?"},{hi:"माउस को कैसे पकड़ते हैं - दिखाएं।",en:"Show how to hold mouse."}],
+                    [{hi:"₹12 बचाएं।",en:"Save ₹12."},{hi:"कंप्यूटर के 3 उपयोग बताएं।",en:"Tell 3 uses of computer."},{hi:"मम्मी को कीबोर्ड पर नाम टाइप करके दिखाएं।",en:"Show mom typing name."}],
+                    [{hi:"₹10 बचाएं।",en:"Save ₹10."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week's savings."},{hi:"कंप्यूटर के 5 अंग याद करें।",en:"Memorize 5 computer parts."}]
                 ],
-                quiz: [
-                    { q: {hi:"कंप्यूटर का 'दिमाग' किसे कहते हैं?", en:"Which part is called the computer's 'brain'?"},
-                      options: [{hi:"मॉनिटर", en:"Monitor"}, {hi:"CPU", en:"CPU"}, {hi:"माउस", en:"Mouse"}],
-                      correct: 1,
-                      exp: {hi:"CPU (सेंट्रल प्रोसेसिंग यूनिट) कंप्यूटर का दिमाग है।", en:"CPU (Central Processing Unit) is the brain of the computer."} }
+                quizPool: [
+                    [{q:{hi:"कंप्यूटर का दिमाग किसे कहते हैं?",en:"Brain of computer?"},
+                      options:[{hi:"मॉनिटर",en:"Monitor"},{hi:"CPU",en:"CPU"},{hi:"माउस",en:"Mouse"},{hi:"कीबोर्ड",en:"Keyboard"}],correct:1,
+                      exp:{hi:"CPU दिमाग है।",en:"CPU is the brain."}},
+                     {q:{hi:"टाइपिंग किससे करते हैं?",en:"Typing device?"},
+                      options:[{hi:"माउस",en:"Mouse"},{hi:"कीबोर्ड",en:"Keyboard"},{hi:"स्पीकर",en:"Speaker"},{hi:"मॉनिटर",en:"Monitor"}],correct:1,
+                      exp:{hi:"कीबोर्ड से।",en:"Keyboard."}},
+                     {q:{hi:"स्क्रीन किसे कहते हैं?",en:"Which is the screen?"},
+                      options:[{hi:"CPU",en:"CPU"},{hi:"मॉनिटर",en:"Monitor"},{hi:"माउस",en:"Mouse"},{hi:"कीबोर्ड",en:"Keyboard"}],correct:1,
+                      exp:{hi:"मॉनिटर स्क्रीन है।",en:"Monitor is screen."}},
+                     {q:{hi:"कर्सर घुमाने के लिए क्या उपयोग करते हैं?",en:"Device to move cursor?"},
+                      options:[{hi:"कीबोर्ड",en:"Keyboard"},{hi:"माउस",en:"Mouse"},{hi:"स्पीकर",en:"Speaker"},{hi:"CPU",en:"CPU"}],correct:1,
+                      exp:{hi:"माउस से।",en:"Mouse."}},
+                     {q:{hi:"₹10 बचत रोज़ करें, 5 दिन में कितने?",en:"Save ₹10 daily, in 5 days?"},
+                      options:[{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"},{hi:"₹50",en:"₹50"},{hi:"₹60",en:"₹60"}],correct:2,
+                      exp:{hi:"10×5=50",en:"10×5=50"}}],
+                    [{q:{hi:"आवाज़ किससे सुनते हैं?",en:"Hear sound from?"},
+                      options:[{hi:"माउस",en:"Mouse"},{hi:"स्पीकर",en:"Speaker"},{hi:"कीबोर्ड",en:"Keyboard"},{hi:"CPU",en:"CPU"}],correct:1,
+                      exp:{hi:"स्पीकर से।",en:"Speaker."}},
+                     {q:{hi:"माउस के कितने बटन होते हैं (आमतौर पर)?",en:"Mouse buttons (usually)?"},
+                      options:[{hi:"1",en:"1"},{hi:"2",en:"2"},{hi:"3",en:"3"},{hi:"4",en:"4"}],correct:1,
+                      exp:{hi:"2 (left-right)।",en:"2 (left-right)."}},
+                     {q:{hi:"कंप्यूटर को चालू करने के लिए क्या दबाते हैं?",en:"To turn on computer?"},
+                      options:[{hi:"कोई बटन नहीं",en:"No button"},{hi:"पावर बटन",en:"Power button"},{hi:"माउस",en:"Mouse"},{hi:"स्क्रीन",en:"Screen"}],correct:1,
+                      exp:{hi:"पावर बटन।",en:"Power button."}},
+                     {q:{hi:"दोस्त को ₹5, ₹5 देकर कुल कितने दिए?",en:"Gave friend ₹5+₹5, total?"},
+                      options:[{hi:"₹5",en:"₹5"},{hi:"₹10",en:"₹10"},{hi:"₹15",en:"₹15"},{hi:"₹20",en:"₹20"}],correct:1,
+                      exp:{hi:"5+5=10",en:"5+5=10"}},
+                     {q:{hi:"कंप्यूटर के कितने मुख्य अंग हैं?",en:"How many main computer parts?"},
+                      options:[{hi:"2",en:"2"},{hi:"3",en:"3"},{hi:"5",en:"5"},{hi:"10",en:"10"}],correct:2,
+                      exp:{hi:"5 मुख्य (मॉनिटर, कीबोर्ड, माउस, CPU, स्पीकर)।",en:"5 main parts."}}],
+                    [{q:{hi:"₹100 में कितने ₹20?",en:"₹100 has how many ₹20?"},
+                      options:[{hi:"3",en:"3"},{hi:"5",en:"5"},{hi:"10",en:"10"},{hi:"20",en:"20"}],correct:1,
+                      exp:{hi:"100÷20=5",en:"100÷20=5"}},
+                     {q:{hi:"माउस से क्या करते हैं?",en:"What mouse does?"},
+                      options:[{hi:"टाइप",en:"Type"},{hi:"क्लिक/चुनना",en:"Click/select"},{hi:"सुनना",en:"Hear"},{hi:"देखना",en:"See"}],correct:1,
+                      exp:{hi:"क्लिक करते हैं।",en:"Click."}},
+                     {q:{hi:"कीबोर्ड में कितने बटन होते हैं (लगभग)?",en:"Keyboard keys (approx)?"},
+                      options:[{hi:"10",en:"10"},{hi:"50",en:"50"},{hi:"100+",en:"100+"},{hi:"500",en:"500"}],correct:2,
+                      exp:{hi:"100 से ज्यादा।",en:"More than 100."}},
+                     {q:{hi:"CPU का फुल फॉर्म?",en:"CPU full form?"},
+                      options:[{hi:"Central Print Unit",en:"Central Print Unit"},{hi:"Central Processing Unit",en:"Central Processing Unit"},{hi:"Computer Personal Unit",en:"Computer Personal Unit"},{hi:"Control Processing Unit",en:"Control Processing Unit"}],correct:1,
+                      exp:{hi:"Central Processing Unit.",en:"Central Processing Unit."}},
+                     {q:{hi:"₹30 बचे, ₹10 खर्च, कितने बचे?",en:"Have ₹30, spend ₹10, left?"},
+                      options:[{hi:"₹10",en:"₹10"},{hi:"₹20",en:"₹20"},{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"}],correct:1,
+                      exp:{hi:"30-10=20",en:"30-10=20"}}],
+                    [{q:{hi:"कंप्यूटर से क्या-क्या कर सकते हैं?",en:"What can we do with computer?"},
+                      options:[{hi:"सिर्फ गेम",en:"Only games"},{hi:"सिर्फ पढ़ाई",en:"Only study"},{hi:"बहुत कुछ (पढ़ाई, गेम, काम)",en:"Many things"},{hi:"कुछ नहीं",en:"Nothing"}],correct:2,
+                      exp:{hi:"बहुत कुछ कर सकते हैं।",en:"Many things."}},
+                     {q:{hi:"₹50 में ₹15 खर्च, बचे?",en:"₹50 - ₹15 = ?"},
+                      options:[{hi:"₹25",en:"₹25"},{hi:"₹30",en:"₹30"},{hi:"₹35",en:"₹35"},{hi:"₹40",en:"₹40"}],correct:2,
+                      exp:{hi:"50-15=35",en:"50-15=35"}},
+                     {q:{hi:"माउस का दायाँ बटन किस लिए?",en:"Right mouse button for?"},
+                      options:[{hi:"क्लिक",en:"Click"},{hi:"मेन्यू/ऑप्शन",en:"Menu/options"},{hi:"स्क्रॉल",en:"Scroll"},{hi:"बंद",en:"Close"}],correct:1,
+                      exp:{hi:"मेन्यू के लिए।",en:"For menu."}},
+                     {q:{hi:"कंप्यूटर बंद करना सही तरीका?",en:"Right way to shut down?"},
+                      options:[{hi:"सीधे पावर ऑफ",en:"Power off directly"},{hi:"Start → Shut Down",en:"Start → Shut Down"},{hi:"प्लग निकालें",en:"Pull plug"},{hi:"माउस उखाड़ें",en:"Remove mouse"}],correct:1,
+                      exp:{hi:"Start → Shut Down सही है।",en:"Start → Shut Down."}},
+                     {q:{hi:"₹2 रोज़ बचाएं, 7 दिन में?",en:"Save ₹2 daily, 7 days?"},
+                      options:[{hi:"₹10",en:"₹10"},{hi:"₹14",en:"₹14"},{hi:"₹20",en:"₹20"},{hi:"₹25",en:"₹25"}],correct:1,
+                      exp:{hi:"2×7=14",en:"2×7=14"}}],
+                    [{q:{hi:"स्क्रीन पर जो चीज़ें दिखती हैं उन्हें क्या कहते हैं?",en:"Things on screen are called?"},
+                      options:[{hi:"प्रिंट",en:"Print"},{hi:"डिस्प्ले",en:"Display"},{hi:"क्लिक",en:"Click"},{hi:"टाइप",en:"Type"}],correct:1,
+                      exp:{hi:"डिस्प्ले।",en:"Display."}},
+                     {q:{hi:"₹1000 में कितने ₹100?",en:"₹1000 has how many ₹100?"},
+                      options:[{hi:"5",en:"5"},{hi:"10",en:"10"},{hi:"15",en:"15"},{hi:"20",en:"20"}],correct:1,
+                      exp:{hi:"1000÷100=10",en:"1000÷100=10"}},
+                     {q:{hi:"कंप्यूटर क्या है?",en:"What is a computer?"},
+                      options:[{hi:"जानवर",en:"Animal"},{hi:"मशीन",en:"Machine"},{hi:"खाना",en:"Food"},{hi:"पेड़",en:"Tree"}],correct:1,
+                      exp:{hi:"कंप्यूटर मशीन है।",en:"Computer is machine."}},
+                     {q:{hi:"कीबोर्ड पर स्पेस बार किस लिए?",en:"Space bar on keyboard for?"},
+                      options:[{hi:"नाम",en:"Name"},{hi:"खाली जगह",en:"Space"},{hi:"नंबर",en:"Numbers"},{hi:"बंद",en:"Close"}],correct:1,
+                      exp:{hi:"खाली जगह के लिए।",en:"For space."}},
+                     {q:{hi:"₹8 बचाएं 3 दिन, कितने?",en:"Save ₹8 for 3 days?"},
+                      options:[{hi:"₹16",en:"₹16"},{hi:"₹20",en:"₹20"},{hi:"₹24",en:"₹24"},{hi:"₹32",en:"₹32"}],correct:2,
+                      exp:{hi:"8×3=24",en:"8×3=24"}}],
+                    [{q:{hi:"कौन सा कंप्यूटर का अंग नहीं है?",en:"Which is NOT a computer part?"},
+                      options:[{hi:"मॉनिटर",en:"Monitor"},{hi:"माउस",en:"Mouse"},{hi:"फ्रिज",en:"Fridge"},{hi:"कीबोर्ड",en:"Keyboard"}],correct:2,
+                      exp:{hi:"फ्रिज नहीं है।",en:"Fridge is not."}},
+                     {q:{hi:"₹50 में ₹10 का सामान खरीदें, बचे?",en:"₹50, buy ₹10, left?"},
+                      options:[{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"},{hi:"₹20",en:"₹20"},{hi:"₹10",en:"₹10"}],correct:1,
+                      exp:{hi:"50-10=40",en:"50-10=40"}},
+                     {q:{hi:"हार्डवेयर क्या है?",en:"What is hardware?"},
+                      options:[{hi:"जो देख सकते, छू सकते",en:"Things you can touch"},{hi:"जो नहीं छू सकते",en:"Untouchable"},{hi:"गाना",en:"Song"},{hi:"फोटो",en:"Photo"}],correct:0,
+                      exp:{hi:"जो छू सकते हैं।",en:"Things you can touch."}},
+                     {q:{hi:"बचत के 2 फायदे?",en:"2 benefits of saving?"},
+                      options:[{hi:"खर्च बढ़े",en:"More expenses"},{hi:"सुरक्षा+भविष्य",en:"Security+Future"},{hi:"कोई नहीं",en:"None"},{hi:"नुकसान",en:"Loss"}],correct:1,
+                      exp:{hi:"सुरक्षा और भविष्य के लिए।",en:"Security & future."}},
+                     {q:{hi:"₹100 का सामान खरीदें ₹150 में से, बचे?",en:"Buy ₹100 from ₹150, left?"},
+                      options:[{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"},{hi:"₹50",en:"₹50"},{hi:"₹60",en:"₹60"}],correct:2,
+                      exp:{hi:"150-100=50",en:"150-100=50"}}],
+                    [{q:{hi:"माउस को घुमाने से स्क्रीन पर क्या घूमता है?",en:"Moving mouse moves what?"},
+                      options:[{hi:"CPU",en:"CPU"},{hi:"कर्सर",en:"Cursor"},{hi:"स्पीकर",en:"Speaker"},{hi:"कीबोर्ड",en:"Keyboard"}],correct:1,
+                      exp:{hi:"कर्सर।",en:"Cursor."}},
+                     {q:{hi:"₹25+₹25+₹50 = ?",en:"₹25+₹25+₹50 = ?"},
+                      options:[{hi:"₹75",en:"₹75"},{hi:"₹100",en:"₹100"},{hi:"₹125",en:"₹125"},{hi:"₹150",en:"₹150"}],correct:1,
+                      exp:{hi:"25+25+50=100",en:"25+25+50=100"}},
+                     {q:{hi:"कीबोर्ड का सबसे बड़ा बटन?",en:"Biggest keyboard key?"},
+                      options:[{hi:"A",en:"A"},{hi:"स्पेस बार",en:"Space bar"},{hi:"एंटर",en:"Enter"},{hi:"शिफ्ट",en:"Shift"}],correct:1,
+                      exp:{hi:"स्पेस बार।",en:"Space bar."}},
+                     {q:{hi:"कंप्यूटर कैसी मशीन है?",en:"Computer is what kind of machine?"},
+                      options:[{hi:"बेकार",en:"Useless"},{hi:"इलेक्ट्रॉनिक",en:"Electronic"},{hi:"लकड़ी",en:"Wooden"},{hi:"पानी",en:"Water"}],correct:1,
+                      exp:{hi:"इलेक्ट्रॉनिक मशीन।",en:"Electronic machine."}},
+                     {q:{hi:"हर दिन ₹5 बचाएं, 1 हफ्ते में?",en:"Save ₹5 daily, 1 week?"},
+                      options:[{hi:"₹25",en:"₹25"},{hi:"₹30",en:"₹30"},{hi:"₹35",en:"₹35"},{hi:"₹40",en:"₹40"}],correct:2,
+                      exp:{hi:"5×7=35",en:"5×7=35"}}]
                 ]
             },
+
             3: {
-                title: { hi: "कक्षा 3: जरूरत बनाम फालतू खर्चा", en: "Class 3: Need vs Want" },
+                title: { hi: "कक्षा 3: जरूरत बनाम इच्छा", en: "Class 3: Need vs Want" },
                 lessons: [
-                    { title: {hi:"जरूरत (Need) और इच्छा (Want)", en:"Need vs Want"},
-                      desc: {hi:"क्या खरीदना जरूरी है और क्या सिर्फ शौक है?", en:"What is essential vs just a desire?"},
-                      youtube: "https://www.youtube.com/results?search_query=needs+vs+wants+for+kids+hindi",
-                      read: {hi:"जरूरत (Need): जो चीज़ जीवन के लिए जरूरी है - जैसे खाना, पानी, कपड़े, पढ़ाई, दवाई।\n\nइच्छा (Want): जो चीज़ अच्छी लगती है पर जरूरी नहीं - जैसे नया खिलौना, वीडियो गेम, चॉकलेट।\n\nसमझदार इंसान पहले जरूरतें पूरी करता है, फिर इच्छाएँ!",
-                            en:"Need: Essential for life - food, water, clothes, education, medicine.\n\nWant: Nice to have but not essential - new toy, video game, chocolate.\n\nSmart people fulfill needs first, then wants!"} },
-                    { title: {hi:"MS Paint में ड्राइंग", en:"Drawing in MS Paint"},
-                      desc: {hi:"कंप्यूटर पर ड्राइंग करना सीखें।", en:"Learn to draw on computer."},
-                      youtube: "https://www.youtube.com/results?search_query=ms+paint+drawing+for+kids+hindi",
-                      read: {hi:"MS Paint एक कंप्यूटर प्रोग्राम है जिसमें हम ड्राइंग बना सकते हैं। ब्रश, पेंसिल, रंग भरने के टूल्स होते हैं। कोई घर या फूल बनाकर देखें!",
-                            en:"MS Paint is a computer program where we can draw. It has brush, pencil, fill tools. Try drawing a house or flower!"} }
+                    { title:{hi:"जरूरत और इच्छा", en:"Need vs Want"},
+                      desc:{hi:"क्या जरूरी, क्या शौक?", en:"What's essential vs desire?"},
+                      youtube:"https://www.youtube.com/results?search_query=needs+vs+wants+for+kids+hindi",
+                      read:{hi:"जरूरत (Need): खाना, पानी, कपड़े, पढ़ाई, दवाई।\nइच्छा (Want): खिलौना, चॉकलेट, वीडियो गेम।\n\nसमझदार पहले जरूरतें पूरी करता है।",
+                            en:"Need: food, water, clothes, study, medicine.\nWant: toy, chocolate, video game.\n\nWise fulfill needs first."} },
+                    { title:{hi:"MS Paint", en:"MS Paint"},
+                      desc:{hi:"कंप्यूटर पर ड्राइंग।", en:"Drawing on computer."},
+                      youtube:"https://www.youtube.com/results?search_query=ms+paint+drawing+for+kids+hindi",
+                      read:{hi:"MS Paint में ब्रश, पेंसिल, रंग भरने के टूल्स होते हैं। घर/फूल बनाएं।",
+                            en:"MS Paint has brush, pencil, fill tools. Draw house/flower."} }
                 ],
-                tasks: [
-                    { hi: "10 चीज़ों की सूची बनाएं - 5 जरूरत, 5 इच्छा।", en: "Make a list of 10 things - 5 needs, 5 wants." },
-                    { hi: "MS Paint में एक घर बनाएं।", en: "Draw a house in MS Paint." },
-                    { hi: "आज ₹20 की बचत करें।", en: "Save ₹20 today." }
+                tasksPool: [
+                    [{hi:"5 जरूरत, 5 इच्छा की सूची बनाएं।",en:"List 5 needs, 5 wants."},{hi:"MS Paint में घर बनाएं।",en:"Draw house in Paint."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"पानी और कोल्ड ड्रिंक में जरूरत कौन?",en:"Water or cold drink - which is need?"},{hi:"MS Paint में फूल बनाएं।",en:"Draw flower in Paint."},{hi:"₹15 बचाएं।",en:"Save ₹15."}],
+                    [{hi:"इच्छा की 3 चीज़ें बताएं।",en:"Tell 3 wants."},{hi:"Notepad में 2 वाक्य टाइप करें।",en:"Type 2 sentences in Notepad."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"दवाई जरूरत है या इच्छा? क्यों?",en:"Medicine: need or want? Why?"},{hi:"MS Paint में अपना नाम लिखें (टेक्स्ट टूल)।",en:"Write your name in Paint (text tool)."},{hi:"₹10 बचाएं।",en:"Save ₹10."}],
+                    [{hi:"बर्थडे गिफ्ट जरूरत है या इच्छा?",en:"Birthday gift: need or want?"},{hi:"MS Paint में सूरज बनाएं।",en:"Draw sun in Paint."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"10 चीज़ों को जरूरत/इच्छा में बाँटें।",en:"Sort 10 items into need/want."},{hi:"कंप्यूटर पर 3 वाक्य टाइप करें।",en:"Type 3 sentences on computer."},{hi:"₹18 बचाएं।",en:"Save ₹18."}],
+                    [{hi:"सप्ताह की सारी इच्छाओं की सूची बनाएं।",en:"List all wants of the week."},{hi:"MS Paint की सबसे अच्छी ड्राइंग बनाएं।",en:"Draw your best artwork in Paint."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add weekly savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"इनमें से कौन 'जरूरत (Need)' है?", en:"Which of these is a 'Need'?"},
-                      options: [{hi:"महंगा खिलौना", en:"Expensive toy"}, {hi:"स्कूल की किताबें", en:"School books"}, {hi:"वीडियो गेम", en:"Video game"}],
-                      correct: 1,
-                      exp: {hi:"पढ़ाई की किताबें जरूरी हैं, खिलौने इच्छा हैं।", en:"School books are essential; toys are wants."} }
+                quizPool: [
+                    [{q:{hi:"कौन जरूरत है?",en:"Which is a need?"},
+                      options:[{hi:"महंगा खिलौना",en:"Expensive toy"},{hi:"स्कूल की किताबें",en:"School books"},{hi:"वीडियो गेम",en:"Video game"},{hi:"चॉकलेट",en:"Chocolate"}],correct:1,
+                      exp:{hi:"किताबें जरूरत हैं।",en:"Books are needs."}},
+                     {q:{hi:"कौन इच्छा है?",en:"Which is a want?"},
+                      options:[{hi:"पानी",en:"Water"},{hi:"खाना",en:"Food"},{hi:"मूवी टिकट",en:"Movie ticket"},{hi:"कपड़े",en:"Clothes"}],correct:2,
+                      exp:{hi:"मूवी टिकट इच्छा है।",en:"Movie is a want."}},
+                     {q:{hi:"दवाई क्या है?",en:"Medicine is?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"शौक",en:"Hobby"},{hi:"मज़ा",en:"Fun"}],correct:0,
+                      exp:{hi:"दवाई जरूरत है।",en:"Medicine is need."}},
+                     {q:{hi:"MS Paint किस लिए है?",en:"MS Paint is for?"},
+                      options:[{hi:"टाइपिंग",en:"Typing"},{hi:"ड्राइंग",en:"Drawing"},{hi:"गाना",en:"Singing"},{hi:"गेम",en:"Games"}],correct:1,
+                      exp:{hi:"ड्राइंग के लिए।",en:"For drawing."}},
+                     {q:{hi:"₹50 में ₹25 की किताब खरीदें, बचे?",en:"₹50 - book ₹25, left?"},
+                      options:[{hi:"₹10",en:"₹10"},{hi:"₹15",en:"₹15"},{hi:"₹25",en:"₹25"},{hi:"₹30",en:"₹30"}],correct:2,
+                      exp:{hi:"50-25=25",en:"50-25=25"}}],
+                    [{q:{hi:"सबसे पहले क्या पूरा करना चाहिए?",en:"What to fulfill first?"},
+                      options:[{hi:"इच्छा",en:"Wants"},{hi:"जरूरत",en:"Needs"},{hi:"दोनों बराबर",en:"Both equally"},{hi:"कोई नहीं",en:"None"}],correct:1,
+                      exp:{hi:"पहले जरूरत।",en:"Needs first."}},
+                     {q:{hi:"इनमें से जरूरत कौन है?",en:"Which is need?"},
+                      options:[{hi:"मोबाइल गेम",en:"Mobile game"},{hi:"रोटी",en:"Roti/Food"},{hi:"पार्क में घूमना",en:"Park visit"},{hi:"नई घड़ी",en:"New watch"}],correct:1,
+                      exp:{hi:"रोटी जरूरत है।",en:"Food is need."}},
+                     {q:{hi:"Paint में रंग कैसे भरते हैं?",en:"How to fill color in Paint?"},
+                      options:[{hi:"पेंसिल",en:"Pencil"},{hi:"फिल टूल",en:"Fill tool"},{hi:"इरेज़र",en:"Eraser"},{hi:"कट",en:"Cut"}],correct:1,
+                      exp:{hi:"फिल टूल से।",en:"Fill tool."}},
+                     {q:{hi:"₹100 में ₹60 की चीज़ खरीदें, बचे?",en:"₹100 - ₹60 = ?"},
+                      options:[{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"},{hi:"₹50",en:"₹50"},{hi:"₹60",en:"₹60"}],correct:1,
+                      exp:{hi:"100-60=40",en:"100-60=40"}},
+                     {q:{hi:"इच्छा पूरी न होने पर क्या करें?",en:"If want not fulfilled?"},
+                      options:[{hi:"रोएं",en:"Cry"},{hi:"समझें और बचत करें",en:"Understand & save"},{hi:"गुस्सा करें",en:"Get angry"},{hi:"हार मानें",en:"Give up"}],correct:1,
+                      exp:{hi:"समझें और बचत करें।",en:"Understand & save."}}],
+                    [{q:{hi:"सबसे ज्यादा जरूरी क्या है?",en:"Most important?"},
+                      options:[{hi:"मोबाइल",en:"Mobile"},{hi:"खाना",en:"Food"},{hi:"TV",en:"TV"},{hi:"खिलौना",en:"Toy"}],correct:1,
+                      exp:{hi:"खाना सबसे ज्यादा जरूरी।",en:"Food is most important."}},
+                     {q:{hi:"बार-बार मोबाइल गेम खरीदना?",en:"Repeatedly buying mobile games?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"बचत",en:"Saving"},{hi:"कमाई",en:"Income"}],correct:1,
+                      exp:{hi:"इच्छा है।",en:"It's a want."}},
+                     {q:{hi:"Paint में ड्राइंग सेव कैसे करें?",en:"How to save drawing in Paint?"},
+                      options:[{hi:"Ctrl+S या Save",en:"Ctrl+S or Save"},{hi:"Delete",en:"Delete"},{hi:"Print",en:"Print"},{hi:"Close",en:"Close"}],correct:0,
+                      exp:{hi:"Ctrl+S या Save।",en:"Ctrl+S or Save."}},
+                     {q:{hi:"₹200 में ₹150 की चीज़, बचे?",en:"₹200 - ₹150 = ?"},
+                      options:[{hi:"₹40",en:"₹40"},{hi:"₹50",en:"₹50"},{hi:"₹60",en:"₹60"},{hi:"₹100",en:"₹100"}],correct:1,
+                      exp:{hi:"200-150=50",en:"200-150=50"}},
+                     {q:{hi:"जरूरतें कब पूरी करनी चाहिए?",en:"When to fulfill needs?"},
+                      options:[{hi:"कभी नहीं",en:"Never"},{hi:"जब जरूरत हो",en:"When needed"},{hi:"बाद में",en:"Later"},{hi:"भूल जाएं",en:"Forget"}],correct:1,
+                      exp:{hi:"जब जरूरत हो।",en:"When needed."}}],
+                    [{q:{hi:"कपड़े क्या हैं?",en:"Clothes are?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"शौक",en:"Hobby"},{hi:"मज़ा",en:"Fun"}],correct:0,
+                      exp:{hi:"कपड़े जरूरत हैं।",en:"Clothes are needs."}},
+                     {q:{hi:"₹500 में ₹200 खर्च, बचे?",en:"₹500 - ₹200 = ?"},
+                      options:[{hi:"₹200",en:"₹200"},{hi:"₹300",en:"₹300"},{hi:"₹400",en:"₹400"},{hi:"₹100",en:"₹100"}],correct:1,
+                      exp:{hi:"500-200=300",en:"500-200=300"}},
+                     {q:{hi:"Paint में इरेज़र का काम?",en:"Eraser in Paint?"},
+                      options:[{hi:"रंग",en:"Color"},{hi:"मिटाना",en:"Erase"},{hi:"टाइप",en:"Type"},{hi:"सेव",en:"Save"}],correct:1,
+                      exp:{hi:"मिटाने के लिए।",en:"To erase."}},
+                     {q:{hi:"सिनेमा जाना क्या है?",en:"Going to cinema is?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"काम",en:"Work"},{hi:"पढ़ाई",en:"Study"}],correct:1,
+                      exp:{hi:"सिनेमा इच्छा है।",en:"Cinema is a want."}},
+                     {q:{hi:"पहले क्या खरीदेंगे - किताब या खिलौना?",en:"Buy first - book or toy?"},
+                      options:[{hi:"खिलौना",en:"Toy"},{hi:"किताब",en:"Book"},{hi:"दोनों",en:"Both"},{hi:"कोई नहीं",en:"None"}],correct:1,
+                      exp:{hi:"पहले किताब (जरूरत)।",en:"First book (need)."}}],
+                    [{q:{hi:"रोटी, कपड़ा, मकान क्या हैं?",en:"Roti, clothes, house are?"},
+                      options:[{hi:"इच्छाएँ",en:"Wants"},{hi:"जरूरतें",en:"Needs"},{hi:"शौक",en:"Hobbies"},{hi:"गेम",en:"Games"}],correct:1,
+                      exp:{hi:"बुनियादी जरूरतें।",en:"Basic needs."}},
+                     {q:{hi:"₹80 में ₹30 खर्च, बचे?",en:"₹80 - ₹30 = ?"},
+                      options:[{hi:"₹40",en:"₹40"},{hi:"₹50",en:"₹50"},{hi:"₹60",en:"₹60"},{hi:"₹30",en:"₹30"}],correct:1,
+                      exp:{hi:"80-30=50",en:"80-30=50"}},
+                     {q:{hi:"Paint में नई फाइल कैसे खोलें?",en:"Open new file in Paint?"},
+                      options:[{hi:"File → New",en:"File → New"},{hi:"Delete",en:"Delete"},{hi:"Ctrl+X",en:"Ctrl+X"},{hi:"Esc",en:"Esc"}],correct:0,
+                      exp:{hi:"File → New।",en:"File → New."}},
+                     {q:{hi:"बहुत सारे खिलौने होना?",en:"Having many toys is?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"बचत",en:"Saving"},{hi:"कमाई",en:"Earning"}],correct:1,
+                      exp:{hi:"इच्छा है।",en:"It's a want."}},
+                     {q:{hi:"जरूरत और इच्छा में क्या अंतर है?",en:"Difference need vs want?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"जरूरत जीवन के लिए, इच्छा शौक",en:"Need=life, want=hobby"},{hi:"इच्छा जरूरी",en:"Want is needed"},{hi:"दोनों एक",en:"Same"}],correct:1,
+                      exp:{hi:"जरूरत जीवन के लिए, इच्छा शौक।",en:"Need=life, want=hobby."}}],
+                    [{q:{hi:"सप्ताह में सबसे ज्यादा क्या खर्च किया?",en:"Most spent on what this week?"},
+                      options:[{hi:"जरूरत",en:"Need"},{hi:"इच्छा",en:"Want"},{hi:"बचत",en:"Saving"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,
+                      exp:{hi:"आमतौर पर इच्छा पर ज्यादा खर्च होता है।",en:"Usually more on wants."}},
+                     {q:{hi:"₹120 में ₹90 खर्च, बचे?",en:"₹120 - ₹90 = ?"},
+                      options:[{hi:"₹20",en:"₹20"},{hi:"₹30",en:"₹30"},{hi:"₹40",en:"₹40"},{hi:"₹50",en:"₹50"}],correct:1,
+                      exp:{hi:"120-90=30",en:"120-90=30"}},
+                     {q:{hi:"जरूरत पूरी करने के बाद क्या करें?",en:"After needs, what to do?"},
+                      options:[{hi:"सब खर्च",en:"Spend all"},{hi:"थोड़ी इच्छा + बचत",en:"Some wants + save"},{hi:"उधार लें",en:"Borrow"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,
+                      exp:{hi:"थोड़ी इच्छा और बचत।",en:"Some wants + save."}},
+                     {q:{hi:"MS Paint किस कंपनी ने बनाया?",en:"Who made MS Paint?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"Microsoft",en:"Microsoft"},{hi:"Apple",en:"Apple"},{hi:"Samsung",en:"Samsung"}],correct:1,
+                      exp:{hi:"Microsoft ने।",en:"Microsoft."}},
+                     {q:{hi:"इच्छाएँ कितनी हो सकती हैं?",en:"How many wants can exist?"},
+                      options:[{hi:"1",en:"1"},{hi:"5",en:"5"},{hi:"असीमित",en:"Unlimited"},{hi:"10",en:"10"}],correct:2,
+                      exp:{hi:"असीमित।",en:"Unlimited."}}]
                 ]
             },
+
             4: {
                 title: { hi: "कक्षा 4: AI का परिचय", en: "Class 4: Introduction to AI" },
                 lessons: [
-                    { title: {hi:"AI क्या है?", en:"What is AI?"},
-                      desc: {hi:"आर्टिफिशियल इंटेलिजेंस - बुद्धिमान मशीनें।", en:"Artificial Intelligence - smart machines."},
-                      youtube: "https://www.youtube.com/results?search_query=what+is+AI+for+kids+hindi",
-                      read: {hi:"AI का मतलब है 'आर्टिफिशियल इंटेलिजेंस' यानी कृत्रिम बुद्धिमत्ता। यह मशीनों को इंसानों की तरह सोचने और सीखने की ताकत देता है।\n\nAI के उदाहरण:\n🤖 Google Assistant - जब आप 'OK Google' बोलते हैं\n📱 Face Unlock - मोबाइल चेहरा पहचानता है\n🎬 YouTube Recommendations - आपको पसंद के वीडियो दिखाता है\n🗣️ Siri, Alexa - आवाज़ से काम करते हैं",
-                            en:"AI means Artificial Intelligence. It gives machines the ability to think and learn like humans.\n\nExamples of AI:\n🤖 Google Assistant - 'OK Google'\n📱 Face Unlock - phone recognizes face\n🎬 YouTube Recommendations - shows videos you like\n🗣️ Siri, Alexa - work by voice"} },
-                    { title: {hi:"AI से बात करना", en:"Talking to AI"},
-                      desc: {hi:"Google Assistant या ChatGPT से सवाल पूछें।", en:"Ask questions to Google Assistant."},
-                      youtube: "https://www.youtube.com/results?search_query=how+to+talk+to+google+assistant+hindi",
-                      read: {hi:"आप AI से बात कर सकते हैं! Google Assistant से पूछें - 'मौसम कैसा है?' या 'चुटकुला सुनाओ'। ChatGPT से कहानी लिखवा सकते हैं। AI हमारा मददगार दोस्त है!",
-                            en:"You can talk to AI! Ask Google Assistant - 'How's the weather?' or 'Tell a joke'. Use ChatGPT to write stories. AI is our helpful friend!"} }
+                    { title:{hi:"AI क्या है?", en:"What is AI?"},
+                      desc:{hi:"आर्टिफिशियल इंटेलिजेंस।", en:"Artificial Intelligence."},
+                      youtube:"https://www.youtube.com/results?search_query=what+is+AI+for+kids+hindi",
+                      read:{hi:"AI = Artificial Intelligence (कृत्रिम बुद्धिमत्ता)। मशीनों को सोचने की ताकत।\n\nउदाहरण:\n🤖 Google Assistant\n📱 Face Unlock\n🎬 YouTube Recommendations\n🗣️ Siri, Alexa",
+                            en:"AI = Artificial Intelligence. Machines can think.\n\nExamples:\n🤖 Google Assistant\n📱 Face Unlock\n🎬 YouTube\n🗣️ Siri, Alexa"} },
+                    { title:{hi:"AI से बात करना", en:"Talking to AI"},
+                      desc:{hi:"Google Assistant से सवाल पूछें।", en:"Ask Google Assistant."},
+                      youtube:"https://www.youtube.com/results?search_query=how+to+talk+to+google+assistant+hindi",
+                      read:{hi:"AI से बात करें - 'मौसम कैसा है?', 'चुटकुला सुनाओ'। ChatGPT से कहानी लिखवाएं।",
+                            en:"Talk to AI - 'weather?', 'tell a joke'. Use ChatGPT for stories."} }
                 ],
-                tasks: [
-                    { hi: "Google Assistant से एक चुटकुला सुनें।", en: "Ask Google Assistant for a joke." },
-                    { hi: "AI का फुल फॉर्म बोलकर बताएं।", en: "Say the full form of AI out loud." },
-                    { hi: "घर में 3 AI का उदाहरण खोजें।", en: "Find 3 AI examples at home." }
+                tasksPool: [
+                    [{hi:"Google Assistant से चुटकुला सुनें।",en:"Ask Google for joke."},{hi:"AI का फुल फॉर्म बोलें।",en:"Say AI full form."},{hi:"घर में 3 AI उदाहरण खोजें।",en:"Find 3 AI examples."}],
+                    [{hi:"Google Assistant से मौसम पूछें।",en:"Ask weather from Google."},{hi:"AI और इंसान में अंतर बताएं।",en:"Difference AI vs human."},{hi:"₹15 बचाएं।",en:"Save ₹15."}],
+                    [{hi:"ChatGPT/AI से कहानी सुनें।",en:"Ask AI for story."},{hi:"AI के 3 फायदे बताएं।",en:"Tell 3 benefits of AI."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"Google Assistant से गाना चलवाएं।",en:"Play song from Google."},{hi:"Face Unlock कैसे काम करता है?",en:"How Face Unlock works?"},{hi:"₹10 बचाएं।",en:"Save ₹10."}],
+                    [{hi:"AI से 3 सवाल पूछें।",en:"Ask AI 3 questions."},{hi:"YouTube suggestion कैसे देता है?",en:"How YouTube suggests videos?"},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"मम्मी को AI के बारे में बताएं।",en:"Tell mom about AI."},{hi:"AI की 2 कमियां बताएं।",en:"Tell 2 drawbacks of AI."},{hi:"₹18 बचाएं।",en:"Save ₹18."}],
+                    [{hi:"सप्ताह की 5 AI बातें लिखें।",en:"Write 5 AI things from week."},{hi:"AI से एक कविता लिखवाएं।",en:"Ask AI for a poem."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"AI का पूरा नाम क्या है?", en:"What is the full form of AI?"},
-                      options: [{hi:"Artificial Intelligence", en:"Artificial Intelligence"}, {hi:"Automatic Internet", en:"Automatic Internet"}, {hi:"Apple iPhone", en:"Apple iPhone"}],
-                      correct: 0,
-                      exp: {hi:"AI = Artificial Intelligence (कृत्रिम बुद्धिमत्ता)", en:"AI = Artificial Intelligence"} }
+                quizPool: [
+                    [{q:{hi:"AI का फुल फॉर्म?",en:"AI full form?"},
+                      options:[{hi:"Automatic Internet",en:"Automatic Internet"},{hi:"Artificial Intelligence",en:"Artificial Intelligence"},{hi:"Apple iPhone",en:"Apple iPhone"},{hi:"Auto Information",en:"Auto Information"}],correct:1,exp:{hi:"Artificial Intelligence।",en:"Artificial Intelligence."}},
+                     {q:{hi:"Google Assistant क्या है?",en:"Google Assistant is?"},
+                      options:[{hi:"खेल",en:"Game"},{hi:"AI उदाहरण",en:"AI example"},{hi:"कैमरा",en:"Camera"},{hi:"गाना",en:"Song"}],correct:1,exp:{hi:"AI उदाहरण।",en:"AI example."}},
+                     {q:{hi:"Face Unlock क्या पहचानता है?",en:"What does Face Unlock recognize?"},
+                      options:[{hi:"आवाज़",en:"Voice"},{hi:"चेहरा",en:"Face"},{hi:"हाथ",en:"Hand"},{hi:"नाम",en:"Name"}],correct:1,exp:{hi:"चेहरा।",en:"Face."}},
+                     {q:{hi:"YouTube आपको वीडियो कैसे दिखाता है?",en:"How YouTube shows videos?"},
+                      options:[{hi:"रैंडम",en:"Random"},{hi:"AI से सुझाव",en:"AI suggestions"},{hi:"किसी से पूछकर",en:"Ask someone"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"AI suggestions।",en:"AI suggestions."}},
+                     {q:{hi:"AI से क्या पूछ सकते हैं?",en:"What can you ask AI?"},
+                      options:[{hi:"सिर्फ गणित",en:"Only math"},{hi:"सिर्फ गाना",en:"Only songs"},{hi:"बहुत कुछ",en:"Many things"},{hi:"कुछ नहीं",en:"Nothing"}],correct:2,exp:{hi:"बहुत कुछ।",en:"Many things."}}],
+                    [{q:{hi:"Siri किस कंपनी का AI है?",en:"Siri belongs to?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"Apple",en:"Apple"},{hi:"Microsoft",en:"Microsoft"},{hi:"Amazon",en:"Amazon"}],correct:1,exp:{hi:"Apple का।",en:"Apple."}},
+                     {q:{hi:"Alexa किस कंपनी का है?",en:"Alexa belongs to?"},
+                      options:[{hi:"Apple",en:"Apple"},{hi:"Amazon",en:"Amazon"},{hi:"Google",en:"Google"},{hi:"Samsung",en:"Samsung"}],correct:1,exp:{hi:"Amazon का।",en:"Amazon."}},
+                     {q:{hi:"AI क्या कर सकता है?",en:"What can AI do?"},
+                      options:[{hi:"सोचना",en:"Think"},{hi:"जवाब देना",en:"Answer"},{hi:"सीखना",en:"Learn"},{hi:"सभी सही",en:"All correct"}],correct:3,exp:{hi:"सभी काम कर सकता है।",en:"All tasks."}},
+                     {q:{hi:"क्या AI इंसान जैसा सोचता है?",en:"Does AI think like human?"},
+                      options:[{hi:"हाँ, बिल्कुल",en:"Yes, exactly"},{hi:"नहीं, अलग तरीका",en:"No, different way"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"अलग तरीका।",en:"Different way."}},
+                     {q:{hi:"AI से कहानी कैसे लिखवाएं?",en:"How to get AI story?"},
+                      options:[{hi:"'कहानी लिखो' बोलें",en:"Say 'write story'"},{hi:"खुद लिखें",en:"Write yourself"},{hi:"मम्मी से कहें",en:"Tell mom"},{hi:"नहीं होगा",en:"Not possible"}],correct:0,exp:{hi:"'कहानी लिखो' बोलें।",en:"Say 'write story'."}}],
+                    [{q:{hi:"Gemini किस कंपनी का AI है?",en:"Gemini belongs to?"},
+                      options:[{hi:"Microsoft",en:"Microsoft"},{hi:"Google",en:"Google"},{hi:"Apple",en:"Apple"},{hi:"Amazon",en:"Amazon"}],correct:1,exp:{hi:"Google का।",en:"Google."}},
+                     {q:{hi:"ChatGPT किस कंपनी का है?",en:"ChatGPT belongs to?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"OpenAI",en:"OpenAI"},{hi:"Apple",en:"Apple"},{hi:"Microsoft",en:"Microsoft"}],correct:1,exp:{hi:"OpenAI का।",en:"OpenAI."}},
+                     {q:{hi:"AI का जनक किसे कहते हैं?",en:"Father of AI?"},
+                      options:[{hi:"गांधी",en:"Gandhi"},{hi:"एलन ट्यूरिंग",en:"Alan Turing"},{hi:"आइंस्टीन",en:"Einstein"},{hi:"न्यूटन",en:"Newton"}],correct:1,exp:{hi:"एलन ट्यूरिंग।",en:"Alan Turing."}},
+                     {q:{hi:"AI से पढ़ाई कैसे करें?",en:"How to study with AI?"},
+                      options:[{hi:"प्रश्न पूछें",en:"Ask questions"},{hi:"नोट्स बनवाएं",en:"Get notes"},{hi:"क्विज़ बनवाएं",en:"Get quizzes"},{hi:"सभी सही",en:"All correct"}],correct:3,exp:{hi:"सभी तरीके सही।",en:"All correct."}},
+                     {q:{hi:"AI को हिंदी में क्या कहते हैं?",en:"AI in Hindi?"},
+                      options:[{hi:"कृत्रिम बुद्धिमत्ता",en:"Kritrim Buddhimatta"},{hi:"कंप्यूटर",en:"Computer"},{hi:"इंटरनेट",en:"Internet"},{hi:"रोबोट",en:"Robot"}],correct:0,exp:{hi:"कृत्रिम बुद्धिमत्ता।",en:"Kritrim Buddhimatta."}}],
+                    [{q:{hi:"AI किस काम नहीं आ सकता?",en:"Where AI cannot help?"},
+                      options:[{hi:"पढ़ाई",en:"Study"},{hi:"सवाल",en:"Questions"},{hi:"असली दोस्ती",en:"Real friendship"},{hi:"जानकारी",en:"Information"}],correct:2,exp:{hi:"असली दोस्ती में नहीं।",en:"Not in real friendship."}},
+                     {q:{hi:"AI कैसे सीखता है?",en:"How does AI learn?"},
+                      options:[{hi:"डेटा से",en:"From data"},{hi:"खाने से",en:"From food"},{hi:"सोने से",en:"From sleep"},{hi:"खेलने से",en:"From play"}],correct:0,exp:{hi:"डेटा से।",en:"From data."}},
+                     {q:{hi:"AI हमारा दोस्त है या दुश्मन?",en:"AI is friend or enemy?"},
+                      options:[{hi:"दुश्मन",en:"Enemy"},{hi:"दोस्त (सही उपयोग से)",en:"Friend (with right use)"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"राक्षस",en:"Monster"}],correct:1,exp:{hi:"सही उपयोग से दोस्त।",en:"Friend with right use."}},
+                     {q:{hi:"AI का उपयोग कहाँ होता है?",en:"Where AI is used?"},
+                      options:[{hi:"सिर्फ मोबाइल",en:"Only mobile"},{hi:"सिर्फ TV",en:"Only TV"},{hi:"हर जगह",en:"Everywhere"},{hi:"कहीं नहीं",en:"Nowhere"}],correct:2,exp:{hi:"हर जगह।",en:"Everywhere."}},
+                     {q:{hi:"AI हमारी मदद करता है?",en:"AI helps us?"},
+                      options:[{hi:"नहीं",en:"No"},{hi:"हाँ, बहुत",en:"Yes, a lot"},{hi:"कभी नहीं",en:"Never"},{hi:"कभी-कभी",en:"Sometimes"}],correct:1,exp:{hi:"हाँ, बहुत मदद करता है।",en:"Yes, a lot."}}],
+                    [{q:{hi:"AI की सबसे अच्छी बात क्या है?",en:"Best thing about AI?"},
+                      options:[{hi:"तेज़ जवाब",en:"Fast answers"},{hi:"कभी नहीं सीखता",en:"Never learns"},{hi:"सिर्फ एक काम",en:"Only 1 task"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"तेज़ जवाब।",en:"Fast answers."}},
+                     {q:{hi:"AI से क्या नहीं पूछना चाहिए?",en:"What not to ask AI?"},
+                      options:[{hi:"पढ़ाई",en:"Study"},{hi:"गणित",en:"Math"},{hi:"निजी जानकारी (नाम/पता)",en:"Personal info"},{hi:"विज्ञान",en:"Science"}],correct:2,exp:{hi:"निजी जानकारी नहीं।",en:"Not personal info."}},
+                     {q:{hi:"AI कौन सी भाषा समझता है?",en:"What languages AI understands?"},
+                      options:[{hi:"सिर्फ अंग्रेजी",en:"Only English"},{hi:"सिर्फ हिंदी",en:"Only Hindi"},{hi:"कई भाषाएँ",en:"Many languages"},{hi:"कोई नहीं",en:"None"}],correct:2,exp:{hi:"कई भाषाएँ।",en:"Many languages."}},
+                     {q:{hi:"AI कैसे काम करता है?",en:"How AI works?"},
+                      options:[{hi:"जादू से",en:"Magic"},{hi:"डेटा और pattern से",en:"Data & patterns"},{hi:"खुद से",en:"On its own"},{hi:"कोई तरीका नहीं",en:"No way"}],correct:1,exp:{hi:"डेटा और pattern से।",en:"Data & patterns."}},
+                     {q:{hi:"AI का भविष्य कैसा है?",en:"Future of AI?"},
+                      options:[{hi:"खत्म",en:"End"},{hi:"और बेहतर",en:"Better"},{hi:"वही",en:"Same"},{hi:"बुरा",en:"Worse"}],correct:1,exp:{hi:"और बेहतर होगा।",en:"Will be better."}}]
                 ]
             },
+
             5: {
                 title: { hi: "कक्षा 5: बैंक और डिजिटल पैसा", en: "Class 5: Bank & Digital Money" },
                 lessons: [
-                    { title: {hi:"बैंक खाता क्या है?", en:"What is a Bank Account?"},
-                      desc: {hi:"बैंक में पैसे सुरक्षित रखना सीखें।", en:"Learn to keep money safe in bank."},
-                      youtube: "https://www.youtube.com/results?search_query=bank+account+for+kids+hindi",
-                      read: {hi:"बैंक एक सुरक्षित जगह है जहाँ हम अपना पैसा जमा करते हैं। बैंक हमें ब्याज (Interest) देता है - यानी हमारा पैसा धीरे-धीरे बढ़ता है।\n\nबैंक के फायदे:\n💰 पैसा सुरक्षित रहता है\n📈 ब्याज मिलता है\n💳 ATM कार्ड से पैसे निकाल सकते हैं\n📱 UPI से ऑनलाइन पेमेंट कर सकते हैं\n\nभारत में UPI (Unified Payments Interface) से मोबाइल से पैसे भेज सकते हैं - बिल्कुल फ्री!",
-                            en:"A bank is a safe place to keep our money. Banks give us interest - our money grows slowly.\n\nBenefits:\n💰 Money is safe\n📈 Get interest\n💳 Withdraw via ATM card\n📱 Pay online via UPI\n\nUPI (Unified Payments Interface) lets you send money from mobile - completely free!"} },
-                    { title: {hi:"डिजिटल पेमेंट (UPI)", en:"Digital Payment (UPI)"},
-                      desc: {hi:"मोबाइल से पैसे भेजना सीखें।", en:"Learn to send money via mobile."},
-                      youtube: "https://www.youtube.com/results?search_query=UPI+payment+for+kids+hindi",
-                      read: {hi:"UPI से हम मोबाइल पर ऐप (जैसे GPay, PhonePe, Paytm) से पैसे भेज सकते हैं। बस किसी का UPI ID डालें या QR कोड स्कैन करें और पैसे भेज दें! बहुत आसान और सुरक्षित।",
-                            en:"UPI lets us send money via apps like GPay, PhonePe, Paytm. Just enter someone's UPI ID or scan QR code and send money! Very easy and safe."} }
+                    { title:{hi:"बैंक खाता", en:"Bank Account"},
+                      desc:{hi:"पैसे सुरक्षित रखें।", en:"Keep money safe."},
+                      youtube:"https://www.youtube.com/results?search_query=bank+account+for+kids+hindi",
+                      read:{hi:"बैंक पैसे की सुरक्षित जगह है।\nफायदे:\n💰 सुरक्षा\n📈 ब्याज\n💳 ATM\n📱 UPI",
+                            en:"Bank is safe for money.\nBenefits:\n💰 Safety\n📈 Interest\n💳 ATM\n📱 UPI"} },
+                    { title:{hi:"UPI डिजिटल पेमेंट", en:"UPI Digital Payment"},
+                      desc:{hi:"मोबाइल से पैसे भेजें।", en:"Send money from mobile."},
+                      youtube:"https://www.youtube.com/results?search_query=UPI+payment+for+kids+hindi",
+                      read:{hi:"UPI = Unified Payments Interface। GPay, PhonePe, Paytm से पैसे भेजें। QR scan या UPI ID से।",
+                            en:"UPI = Unified Payments Interface. Send via GPay/PhonePe/Paytm. QR scan or UPI ID."} }
                 ],
-                tasks: [
-                    { hi: "मम्मी-पापा के साथ बैंक जाकर देखें ATM कैसे काम करता है।", en: "Visit bank with parents and see how ATM works." },
-                    { hi: "Notepad में 5 वाक्य टाइप करें।", en: "Type 5 sentences in Notepad." },
-                    { hi: "UPI क्या है - बोलकर समझाएं।", en: "Explain what UPI is." }
+                tasksPool: [
+                    [{hi:"बैंक जाकर ATM देखें।",en:"Visit bank ATM."},{hi:"Notepad में 5 वाक्य टाइप करें।",en:"Type 5 sentences."},{hi:"UPI क्या है - बोलें।",en:"Say what is UPI."}],
+                    [{hi:"मम्मी से बैंक खाते के बारे में पूछें।",en:"Ask mom about bank account."},{hi:"₹20 बचाएं।",en:"Save ₹20."},{hi:"ATM कार्ड क्या है?",en:"What is ATM card?"}],
+                    [{hi:"ब्याज क्या है - समझें।",en:"Understand interest."},{hi:"₹25 बचाएं।",en:"Save ₹25."},{hi:"UPI ऐप के 3 नाम बताएं।",en:"Name 3 UPI apps."}],
+                    [{hi:"बैंक में पैसा क्यों रखते हैं?",en:"Why keep money in bank?"},{hi:"₹15 बचाएं।",en:"Save ₹15."},{hi:"ATM से क्या निकालते हैं?",en:"What from ATM?"}],
+                    [{hi:"घर में पैसे vs बैंक में पैसे - अंतर",en:"Home money vs bank money."},{hi:"₹30 बचाएं।",en:"Save ₹30."},{hi:"UPI से क्या-क्या भेज सकते हैं?",en:"What can send via UPI?"}],
+                    [{hi:"बैंक के 3 फायदे बताएं।",en:"3 benefits of bank."},{hi:"₹12 बचाएं।",en:"Save ₹12."},{hi:"QR कोड क्या है?",en:"What is QR code?"}],
+                    [{hi:"सप्ताह में बैंक के बारे में क्या सीखा?",en:"What learned about bank this week?"},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."},{hi:"UPI के 2 फायदे बताएं।",en:"2 benefits of UPI."}]
                 ],
-                quiz: [
-                    { q: {hi:"बैंक में जमा पैसे पर बैंक क्या देता है?", en:"What does bank give on deposited money?"},
-                      options: [{hi:"दंड", en:"Penalty"}, {hi:"ब्याज (Interest)", en:"Interest"}, {hi:"कुछ नहीं", en:"Nothing"}],
-                      correct: 1,
-                      exp: {hi:"बैंक ब्याज देता है जिससे पैसा बढ़ता है।", en:"Bank gives interest, growing your money."} }
+                quizPool: [
+                    [{q:{hi:"बैंक हमें क्या देता है?",en:"Bank gives us?"},
+                      options:[{hi:"दंड",en:"Penalty"},{hi:"ब्याज",en:"Interest"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"नुकसान",en:"Loss"}],correct:1,exp:{hi:"ब्याज देता है।",en:"Gives interest."}},
+                     {q:{hi:"UPI का फुल फॉर्म?",en:"UPI full form?"},
+                      options:[{hi:"Unified Payments Interface",en:"Unified Payments Interface"},{hi:"United Personal Internet",en:"United Personal Internet"},{hi:"Universal Pay India",en:"Universal Pay India"},{hi:"User Pay Interface",en:"User Pay Interface"}],correct:0,exp:{hi:"Unified Payments Interface।",en:"Unified Payments Interface."}},
+                     {q:{hi:"ATM का पूरा नाम?",en:"ATM full form?"},
+                      options:[{hi:"Auto Teller Machine",en:"Auto Teller Machine"},{hi:"Automated Teller Machine",en:"Automated Teller Machine"},{hi:"All Time Money",en:"All Time Money"},{hi:"Auto Transfer Money",en:"Auto Transfer Money"}],correct:1,exp:{hi:"Automated Teller Machine।",en:"Automated Teller Machine."}},
+                     {q:{hi:"UPI ऐप कौन सा है?",en:"Which is UPI app?"},
+                      options:[{hi:"WhatsApp",en:"WhatsApp"},{hi:"Google Pay",en:"Google Pay"},{hi:"Facebook",en:"Facebook"},{hi:"Instagram",en:"Instagram"}],correct:1,exp:{hi:"Google Pay UPI है।",en:"Google Pay is UPI."}},
+                     {q:{hi:"₹100 पर 10% ब्याज, 1 साल बाद कितने?",en:"₹100 at 10%, after 1 year?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹110",en:"₹110"},{hi:"₹120",en:"₹120"},{hi:"₹150",en:"₹150"}],correct:1,exp:{hi:"100+10=110",en:"100+10=110"}}],
+                    [{q:{hi:"UPI से क्या भेज सकते हैं?",en:"What can send via UPI?"},
+                      options:[{hi:"सिर्फ पैसे",en:"Only money"},{hi:"पैसे और मैसेज",en:"Money & messages"},{hi:"सिर्फ फोटो",en:"Only photos"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"सिर्फ पैसे भेज सकते हैं।",en:"Only money."}},
+                     {q:{hi:"QR कोड क्या है?",en:"QR code is?"},
+                      options:[{hi:"गाना",en:"Song"},{hi:"स्कैन करने वाला बारकोड",en:"Scannable barcode"},{hi:"फोटो",en:"Photo"},{hi:"लिखावट",en:"Text"}],correct:1,exp:{hi:"स्कैन करने वाला बारकोड।",en:"Scannable barcode."}},
+                     {q:{hi:"ATM कार्ड से क्या करते हैं?",en:"What ATM card does?"},
+                      options:[{hi:"पैसे निकालते",en:"Withdraw money"},{hi:"खाना",en:"Eat"},{hi:"गाना",en:"Sing"},{hi:"सोना",en:"Sleep"}],correct:0,exp:{hi:"पैसे निकालते हैं।",en:"Withdraw money."}},
+                     {q:{hi:"बैंक में पैसे सुरक्षित क्यों?",en:"Why safe in bank?"},
+                      options:[{hi:"बंद कमरे में",en:"Locked room"},{hi:"सरकार की निगरानी",en:"Govt. monitored"},{hi:"कोई नहीं",en:"No one"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"सरकार की निगरानी में।",en:"Govt monitored."}},
+                     {q:{hi:"₹500 पर 5% ब्याज, 1 साल बाद?",en:"₹500 at 5%, after 1 year?"},
+                      options:[{hi:"₹505",en:"₹505"},{hi:"₹525",en:"₹525"},{hi:"₹550",en:"₹550"},{hi:"₹600",en:"₹600"}],correct:1,exp:{hi:"500+25=525",en:"500+25=525"}}],
+                    [{q:{hi:"बैंक खाता खोलने के लिए क्या चाहिए?",en:"To open bank account?"},
+                      options:[{hi:"कोई ID नहीं",en:"No ID"},{hi:"आधार/पहचान पत्र",en:"Aadhaar/ID"},{hi:"खिलौना",en:"Toy"},{hi:"किताब",en:"Book"}],correct:1,exp:{hi:"आधार/ID।",en:"Aadhaar/ID."}},
+                     {q:{hi:"UPI से पैसे भेजना कितना सुरक्षित?",en:"How safe is UPI?"},
+                      options:[{hi:"बिल्कुल असुरक्षित",en:"Totally unsafe"},{hi:"सुरक्षित (सही उपयोग से)",en:"Safe (right use)"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"सही उपयोग से सुरक्षित।",en:"Safe with right use."}},
+                     {q:{hi:"NEFT/RTGS क्या हैं?",en:"NEFT/RTGS are?"},
+                      options:[{hi:"गाने",en:"Songs"},{hi:"पैसे भेजने के तरीके",en:"Money transfer methods"},{hi:"गेम",en:"Games"},{hi:"किताबें",en:"Books"}],correct:1,exp:{hi:"पैसे भेजने के तरीके।",en:"Money transfer methods."}},
+                     {q:{hi:"बैंक का मुख्य काम क्या है?",en:"Main bank work?"},
+                      options:[{hi:"खाना",en:"Food"},{hi:"पैसे की सुरक्षा",en:"Money safety"},{hi:"कपड़े",en:"Clothes"},{hi:"गेम",en:"Games"}],correct:1,exp:{hi:"पैसे की सुरक्षा।",en:"Money safety."}},
+                     {q:{hi:"₹200 पर 10% ब्याज 1 साल, कितने?",en:"₹200 at 10% for 1 year?"},
+                      options:[{hi:"₹200",en:"₹200"},{hi:"₹210",en:"₹210"},{hi:"₹220",en:"₹220"},{hi:"₹250",en:"₹250"}],correct:2,exp:{hi:"200+20=220",en:"200+20=220"}}],
+                    [{q:{hi:"UPI ID कैसी दिखती है?",en:"UPI ID looks like?"},
+                      options:[{hi:"123456",en:"123456"},{hi:"name@bank",en:"name@bank"},{hi:"abcd",en:"abcd"},{hi:"www.xyz",en:"www.xyz"}],correct:1,exp:{hi:"name@bank जैसी।",en:"Like name@bank."}},
+                     {q:{hi:"बैंक किसकी निगरानी में होता है?",en:"Bank is monitored by?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"RBI",en:"RBI"},{hi:"मम्मी",en:"Mom"},{hi:"स्कूल",en:"School"}],correct:1,exp:{hi:"RBI की निगरानी में।",en:"Monitored by RBI."}},
+                     {q:{hi:"UPI से पैसे कब नहीं भेजने चाहिए?",en:"When not to send via UPI?"},
+                      options:[{hi:"अजनबी को बिना कारण",en:"To stranger without reason"},{hi:"मम्मी को",en:"To mom"},{hi:"दुकान पर",en:"At shop"},{hi:"बिल भरने",en:"For bills"}],correct:0,exp:{hi:"अजनबी को नहीं।",en:"Not to strangers."}},
+                     {q:{hi:"बैंक में पैसे रखने से क्या होता है?",en:"Bank money grows how?"},
+                      options:[{hi:"कम होता",en:"Reduces"},{hi:"बढ़ता (ब्याज)",en:"Grows (interest)"},{hi:"वही",en:"Same"},{hi:"गायब",en:"Disappears"}],correct:1,exp:{hi:"ब्याज से बढ़ता है।",en:"Grows with interest."}},
+                     {q:{hi:"₹50 पर 20% ब्याज 1 साल, कितने?",en:"₹50 at 20% for 1 year?"},
+                      options:[{hi:"₹50",en:"₹50"},{hi:"₹55",en:"₹55"},{hi:"₹60",en:"₹60"},{hi:"₹70",en:"₹70"}],correct:2,exp:{hi:"50+10=60",en:"50+10=60"}}],
+                    [{q:{hi:"UPI किसने शुरू किया?",en:"Who started UPI?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"NPCI",en:"NPCI"},{hi:"Apple",en:"Apple"},{hi:"Microsoft",en:"Microsoft"}],correct:1,exp:{hi:"NPCI ने शुरू किया।",en:"Started by NPCI."}},
+                     {q:{hi:"बैंक खाते में पैसे जमा करने को क्या कहते हैं?",en:"Putting money in bank is called?"},
+                      options:[{hi:"निकासी",en:"Withdrawal"},{hi:"जमा (Deposit)",en:"Deposit"},{hi:"उधार",en:"Loan"},{hi:"ब्याज",en:"Interest"}],correct:1,exp:{hi:"जमा (Deposit)।",en:"Deposit."}},
+                     {q:{hi:"ATM कहाँ मिलता है?",en:"Where is ATM found?"},
+                      options:[{hi:"घर",en:"Home"},{hi:"बैंक के पास/बाजार",en:"Near bank/market"},{hi:"जंगल",en:"Forest"},{hi:"पहाड़",en:"Mountain"}],correct:1,exp:{hi:"बैंक के पास/बाजार में।",en:"Near bank/market."}},
+                     {q:{hi:"₹1000 पर 5% ब्याज 1 साल, कितने?",en:"₹1000 at 5% for 1 year?"},
+                      options:[{hi:"₹1000",en:"₹1000"},{hi:"₹1050",en:"₹1050"},{hi:"₹1100",en:"₹1100"},{hi:"₹1500",en:"₹1500"}],correct:1,exp:{hi:"1000+50=1050",en:"1000+50=1050"}},
+                     {q:{hi:"UPI से क्या फायदा है?",en:"UPI benefit?"},
+                      options:[{hi:"धीमा",en:"Slow"},{hi:"तेज़ और आसान",en:"Fast & easy"},{hi:"महंगा",en:"Expensive"},{hi:"मुश्किल",en:"Hard"}],correct:1,exp:{hi:"तेज़ और आसान।",en:"Fast & easy."}}],
+                    [{q:{hi:"बैंक से पैसे निकालने को क्या कहते हैं?",en:"Taking money from bank is called?"},
+                      options:[{hi:"जमा",en:"Deposit"},{hi:"निकासी (Withdrawal)",en:"Withdrawal"},{hi:"ब्याज",en:"Interest"},{hi:"उधार",en:"Loan"}],correct:1,exp:{hi:"निकासी (Withdrawal)।",en:"Withdrawal."}},
+                     {q:{hi:"UPI सुबह कितने बजे से रात कितने बजे तक?",en:"UPI working hours?"},
+                      options:[{hi:"सिर्फ 10-5",en:"Only 10-5"},{hi:"24 घंटे",en:"24 hours"},{hi:"सिर्फ दिन",en:"Only day"},{hi:"कभी नहीं",en:"Never"}],correct:1,exp:{hi:"24 घंटे काम करता है।",en:"Works 24 hours."}},
+                     {q:{hi:"₹5000 पर 10% ब्याज 1 साल?",en:"₹5000 at 10% for 1 year?"},
+                      options:[{hi:"₹5000",en:"₹5000"},{hi:"₹5500",en:"₹5500"},{hi:"₹6000",en:"₹6000"},{hi:"₹5100",en:"₹5100"}],correct:1,exp:{hi:"5000+500=5500",en:"5000+500=5500"}},
+                     {q:{hi:"बैंक में खाता किसके नाम पर खुलता है?",en:"Bank account opens in whose name?"},
+                      options:[{hi:"कोई नहीं",en:"No one"},{hi:"आपके नाम पर",en:"In your name"},{hi:"पड़ोसी के",en:"Neighbor's"},{hi:"शिक्षक के",en:"Teacher's"}],correct:1,exp:{hi:"आपके नाम पर।",en:"In your name."}},
+                     {q:{hi:"UPI से ज्यादा पैसे भेजने की limit?",en:"UPI max limit per day?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹1000",en:"₹1000"},{hi:"₹1,00,000",en:"₹1,00,000"},{hi:"कोई नहीं",en:"None"}],correct:2,exp:{hi:"₹1 लाख/दिन (आमतौर पर)।",en:"₹1 lakh/day (usually)."}}]
                 ]
             }
+
         }
     },
 
-    /* ============ TRACK 2: CLASS 6-12 ============ */
     2: {
         name: { hi: "भाग 2: उच्च स्तर (उम्र 10-20 | कक्षा 6-12)", en: "Part 2: Advanced Level (Age 10-20 | Class 6-12)" },
-        desc: { hi: "फाइनेंस, स्टॉक मार्केट, AI, कोडिंग, फ्रीलांसिंग और कंप्यूटर की पूरी जानकारी से आत्मनिर्भर बनें।",
-                en: "Master finance, stock market, AI, coding, freelancing and computer skills to become self-reliant." },
+        desc: { hi: "फाइनेंस, स्टॉक मार्केट, AI, कोडिंग, फ्रीलांसिंग सीखें।",
+                en: "Master finance, stock market, AI, coding, freelancing." },
         classes: {
+
             6: {
                 title: { hi: "कक्षा 6: चक्रवृद्धि ब्याज का जादू", en: "Class 6: Magic of Compound Interest" },
                 lessons: [
-                    { title: {hi:"चक्रवृद्धि ब्याज (Compound Interest)", en:"Compound Interest"},
-                      desc: {hi:"पैसे से पैसा बनाने का सबसे शक्तिशाली तरीका।", en:"The most powerful way to make money from money."},
-                      youtube: "https://www.youtube.com/results?search_query=compound+interest+explained+hindi",
-                      read: {hi:"चक्रवृद्धि ब्याज (Compound Interest) तब लगता है जब आपको पहले साल के ब्याज पर भी अगले साल ब्याज मिलता है।\n\nउदाहरण: ₹1,000 पर 10% ब्याज\nसाल 1: ₹1,000 + ₹100 = ₹1,100\nसाल 2: ₹1,100 का 10% = ₹110 → कुल ₹1,210\nसाल 10: ₹2,593 (करीब 2.5x!)\nसाल 20: ₹6,727 (करीब 6.7x!)\n\nअल्बर्ट आइंस्टीन ने इसे 'दुनिया का 8वां अजूबा' कहा था।\n\n🔑 सूत्र: A = P(1 + r/n)^(nt)\nजहाँ A = कुल रकम, P = मूलधन, r = ब्याज दर, n = साल में बार, t = साल\n\n🌟 जितनी जल्दी निवेश शुरू करें, उतना बड़ा फायदा!",
-                            en:"Compound interest means earning interest on your interest.\n\nExample: ₹1,000 at 10%\nYear 1: ₹1,000 + ₹100 = ₹1,100\nYear 2: 10% of ₹1,100 = ₹110 → ₹1,210\nYear 10: ₹2,593 (~2.5x!)\nYear 20: ₹6,727 (~6.7x!)\n\nEinstein called it 'the 8th wonder of the world'.\n\n🔑 Formula: A = P(1 + r/n)^(nt)\n\n🌟 Start investing early for maximum benefit!"} },
-                    { title: {hi:"कंप्यूटर हार्डवेयर और सॉफ्टवेयर", en:"Computer Hardware & Software"},
-                      desc: {hi:"कंप्यूटर के अंदर क्या है? सॉफ्टवेयर क्या है?", en:"What's inside a computer? What is software?"},
-                      youtube: "https://www.youtube.com/results?search_query=computer+hardware+software+hindi",
-                      read: {hi:"🖥️ हार्डवेयर (Hardware): जिन्हें हम छू सकते हैं - मॉनिटर, कीबोर्ड, माउस, CPU, RAM, हार्ड डिस्क, मदरबोर्ड।\n\n💾 सॉफ्टवेयर (Software): जो हम देख नहीं सकते पर काम करता है - Windows, MS Word, Chrome, गेम्स, ऐप्स।\n\nमुख्य हार्डवेयर:\n• CPU: दिमाग\n• RAM: अस्थायी मेमोरी (जितनी ज्यादा, उतना तेज़)\n• हार्ड डिस्क/SSD: स्थायी स्टोरेज\n• मदरबोर्ड: सबको जोड़ता है\n• GPU: ग्राफिक्स के लिए\n\nसॉफ्टवेयर के प्रकार:\n• OS (ऑपरेटिंग सिस्टम): Windows, macOS, Linux\n• एप्लीकेशन: Word, Chrome, Games",
-                            en:"🖥️ Hardware: Physical parts you can touch - monitor, keyboard, mouse, CPU, RAM, hard disk, motherboard.\n\n💾 Software: Programs you can't touch - Windows, MS Word, Chrome, games, apps.\n\nKey Hardware:\n• CPU: Brain\n• RAM: Temporary memory (more = faster)\n• Hard disk/SSD: Permanent storage\n• Motherboard: Connects everything\n• GPU: For graphics\n\nSoftware types:\n• OS: Windows, macOS, Linux\n• Applications: Word, Chrome, Games"} }
+                    { title:{hi:"चक्रवृद्धि ब्याज", en:"Compound Interest"},
+                      desc:{hi:"पैसे से पैसा बनाना।", en:"Make money from money."},
+                      youtube:"https://www.youtube.com/results?search_query=compound+interest+explained+hindi",
+                      read:{hi:"चक्रवृद्धि ब्याज (Compound Interest) तब लगता है जब पहले साल के ब्याज पर भी अगले साल ब्याज मिलता है।\n\nउदाहरण: ₹1,000 पर 10% ब्याज\nसाल 1: ₹1,100\nसाल 2: ₹1,210\nसाल 10: ₹2,593\nसाल 20: ₹6,727\n\nआइंस्टीन: 'दुनिया का 8वां अजूबा'।\n\nसूत्र: A = P(1+r/n)^(nt)",
+                            en:"Compound interest earns interest on interest.\n\nExample: ₹1,000 at 10%\nYear 1: ₹1,100\nYear 2: ₹1,210\nYear 10: ₹2,593\nYear 20: ₹6,727\n\nEinstein: '8th wonder'. Formula: A = P(1+r/n)^(nt)"} },
+                    { title:{hi:"कंप्यूटर हार्डवेयर/सॉफ्टवेयर", en:"Computer Hardware/Software"},
+                      desc:{hi:"कंप्यूटर के अंदर क्या है?", en:"What's inside computer?"},
+                      youtube:"https://www.youtube.com/results?search_query=computer+hardware+software+hindi",
+                      read:{hi:"हार्डवेयर (छू सकते हैं): मॉनिटर, कीबोर्ड, CPU, RAM, हार्ड डिस्क, मदरबोर्ड, GPU।\n\nसॉफ्टवेयर (नहीं छू सकते): Windows, Word, Chrome, गेम्स।\n\nCPU: दिमाग, RAM: अस्थायी मेमोरी, SSD: स्थायी स्टोरेज।",
+                            en:"Hardware (touchable): monitor, keyboard, CPU, RAM, hard disk, motherboard, GPU.\n\nSoftware (untouchable): Windows, Word, Chrome, games.\n\nCPU: brain, RAM: temp memory, SSD: permanent storage."} }
                 ],
-                tasks: [
-                    { hi: "₹100 पर 10% चक्रवृद्धि ब्याज का 3 साल का हिसाब लगाएं।", en: "Calculate 3-year compound interest on ₹100 at 10%." },
-                    { hi: "अपने घर के कंप्यूटर/मोबाइल के 5 हार्डवेयर और 5 सॉफ्टवेयर की सूची बनाएं।", en: "List 5 hardware & 5 software from your computer/mobile." },
-                    { hi: "फोन में Settings खोलकर RAM और Storage देखें।", en: "Open Settings in your phone, check RAM and Storage." }
+                tasksPool: [
+                    [{hi:"₹100 पर 10% चक्रवृद्धि ब्याज 3 साल का हिसाब।",en:"Calculate 3-year CI on ₹100 at 10%."},{hi:"5 हार्डवेयर, 5 सॉफ्टवेयर सूची।",en:"List 5 hardware, 5 software."},{hi:"फोन में RAM/Storage देखें।",en:"Check RAM/Storage on phone."}],
+                    [{hi:"₹500 पर 5% CI 2 साल का हिसाब।",en:"Calculate 2-year CI on ₹500 at 5%."},{hi:"CPU और GPU में अंतर बताएं।",en:"Difference CPU vs GPU."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"8% पर ₹1000 का 5 साल का CI।",en:"CI on ₹1000 at 8% for 5 years."},{hi:"RAM और SSD में अंतर।",en:"Difference RAM vs SSD."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"CI vs साधारण ब्याज - अंतर बताएं।",en:"CI vs SI - difference."},{hi:"ऑपरेटिंग सिस्टम के 3 उदाहरण।",en:"3 examples of OS."},{hi:"₹40 बचाएं।",en:"Save ₹40."}],
+                    [{hi:"₹2000 पर 10% CI 2 साल का।",en:"CI on ₹2000 at 10% for 2 years."},{hi:"मदरबोर्ड का काम बताएं।",en:"Tell motherboard's job."},{hi:"₹35 बचाएं।",en:"Save ₹35."}],
+                    [{hi:"CI का फॉर्मूला याद करें।",en:"Memorize CI formula."},{hi:"एप्लीकेशन सॉफ्टवेयर के 3 नाम।",en:"3 application softwares."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"CI कैलकुलेटर से 10 साल का रिटर्न देखें।",en:"Check 10-year return on CI calculator."},{hi:"सप्ताह में सीखे 5 कंप्यूटर टर्म।",en:"5 computer terms learned this week."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"चक्रवृद्धि ब्याज में सबसे बड़ा फायदा किससे मिलता है?", en:"What gives biggest advantage in compound interest?"},
-                      options: [{hi:"ज्यादा पैसा एक बार में डालना", en:"Investing huge amount once"}, {hi:"ज्यादा समय (Time)", en:"More time"}, {hi:"कम ब्याज दर", en:"Low interest rate"}],
-                      correct: 1,
-                      exp: {hi:"समय (Time) चक्रवृद्धि ब्याज का सबसे बड़ा दोस्त है। जितना जल्दी शुरू करें उतना बेहतर!", en:"Time is the biggest friend of compound interest. Start early!"} },
-                    { q: {hi:"RAM का क्या काम है?", en:"What does RAM do?"},
-                      options: [{hi:"स्थायी स्टोरेज", en:"Permanent storage"}, {hi:"अस्थायी मेमोरी (तेज़ी के लिए)", en:"Temporary memory (for speed)"}, {hi:"ग्राफिक्स", en:"Graphics"}],
-                      correct: 1,
-                      exp: {hi:"RAM अस्थायी मेमोरी है जो चालू प्रोग्राम को तेज़ रखती है।", en:"RAM is temporary memory that keeps running programs fast."} }
+                quizPool: [
+                    [{q:{hi:"चक्रवृद्धि ब्याज में सबसे बड़ा फायदा?",en:"Biggest advantage of CI?"},
+                      options:[{hi:"ज्यादा पैसा एक बार",en:"Huge amount once"},{hi:"समय",en:"Time"},{hi:"कम ब्याज",en:"Low rate"},{hi:"कोई नहीं",en:"None"}],correct:1,exp:{hi:"समय सबसे बड़ा दोस्त।",en:"Time is biggest friend."}},
+                     {q:{hi:"RAM का काम?",en:"RAM's job?"},
+                      options:[{hi:"स्थायी स्टोरेज",en:"Permanent"},{hi:"अस्थायी मेमोरी",en:"Temporary memory"},{hi:"ग्राफिक्स",en:"Graphics"},{hi:"आवाज़",en:"Sound"}],correct:1,exp:{hi:"अस्थायी मेमोरी।",en:"Temporary memory."}},
+                     {q:{hi:"₹1000 पर 10% साधारण ब्याज 1 साल?",en:"₹1000 at 10% SI for 1 year?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹110",en:"₹110"},{hi:"₹1000",en:"₹1000"},{hi:"₹1100",en:"₹1100"}],correct:0,exp:{hi:"SI=100",en:"SI=100"}},
+                     {q:{hi:"CPU का फुल फॉर्म?",en:"CPU full form?"},
+                      options:[{hi:"Central Processing Unit",en:"Central Processing Unit"},{hi:"Computer Personal Unit",en:"Computer Personal Unit"},{hi:"Control Print Unit",en:"Control Print Unit"},{hi:"Central Print Unit",en:"Central Print Unit"}],correct:0,exp:{hi:"Central Processing Unit।",en:"Central Processing Unit."}},
+                     {q:{hi:"SSD क्या है?",en:"SSD is?"},
+                      options:[{hi:"अस्थायी मेमोरी",en:"Temp memory"},{hi:"स्थायी स्टोरेज",en:"Permanent storage"},{hi:"ग्राफिक्स",en:"Graphics"},{hi:"CPU",en:"CPU"}],correct:1,exp:{hi:"स्थायी स्टोरेज।",en:"Permanent storage."}}],
+                    [{q:{hi:"₹1000, 10% CI, 2 साल बाद?",en:"₹1000, 10% CI, 2 years?"},
+                      options:[{hi:"₹1100",en:"₹1100"},{hi:"₹1200",en:"₹1200"},{hi:"₹1210",en:"₹1210"},{hi:"₹1300",en:"₹1300"}],correct:2,exp:{hi:"1000×1.1²=1210",en:"1000×1.1²=1210"}},
+                     {q:{hi:"हार्डवेयर क्या है?",en:"What is hardware?"},
+                      options:[{hi:"जो छू सकते",en:"Touchable"},{hi:"जो नहीं छू सकते",en:"Untouchable"},{hi:"गाना",en:"Song"},{hi:"फोटो",en:"Photo"}],correct:0,exp:{hi:"जो छू सकते हैं।",en:"Touchable parts."}},
+                     {q:{hi:"Windows क्या है?",en:"Windows is?"},
+                      options:[{hi:"हार्डवेयर",en:"Hardware"},{hi:"OS (ऑपरेटिंग सिस्टम)",en:"OS"},{hi:"गेम",en:"Game"},{hi:"मॉनिटर",en:"Monitor"}],correct:1,exp:{hi:"OS है।",en:"It's an OS."}},
+                     {q:{hi:"₹500 पर 10% SI 2 साल?",en:"₹500 at 10% SI for 2 years?"},
+                      options:[{hi:"₹50",en:"₹50"},{hi:"₹100",en:"₹100"},{hi:"₹150",en:"₹150"},{hi:"₹500",en:"₹500"}],correct:1,exp:{hi:"500×0.1×2=100",en:"500×0.1×2=100"}},
+                     {q:{hi:"GPU का काम?",en:"GPU's job?"},
+                      options:[{hi:"दिमाग",en:"Brain"},{hi:"ग्राफिक्स",en:"Graphics"},{hi:"स्टोरेज",en:"Storage"},{hi:"आवाज़",en:"Sound"}],correct:1,exp:{hi:"ग्राफिक्स के लिए।",en:"For graphics."}}],
+                    [{q:{hi:"₹2000 पर 5% CI 2 साल?",en:"₹2000 at 5% CI for 2 years?"},
+                      options:[{hi:"₹2100",en:"₹2100"},{hi:"₹2200",en:"₹2200"},{hi:"₹2205",en:"₹2205"},{hi:"₹2300",en:"₹2300"}],correct:2,exp:{hi:"2000×1.05²=2205",en:"2000×1.05²=2205"}},
+                     {q:{hi:"मदरबोर्ड का काम?",en:"Motherboard's job?"},
+                      options:[{hi:"सबको जोड़ना",en:"Connect all"},{hi:"गाना",en:"Sing"},{hi:"ग्राफिक्स",en:"Graphics"},{hi:"स्टोरेज",en:"Storage"}],correct:0,exp:{hi:"सब जोड़ता है।",en:"Connects all."}},
+                     {q:{hi:"CI फॉर्मूला क्या है?",en:"CI formula?"},
+                      options:[{hi:"P + r",en:"P + r"},{hi:"P(1+r/n)^(nt)",en:"P(1+r/n)^(nt)"},{hi:"P×r×t",en:"P×r×t"},{hi:"P÷r",en:"P÷r"}],correct:1,exp:{hi:"A = P(1+r/n)^(nt)",en:"A = P(1+r/n)^(nt)"}},
+                     {q:{hi:"हार्ड डिस्क में क्या स्टोर होता है?",en:"Hard disk stores?"},
+                      options:[{hi:"कुछ नहीं",en:"Nothing"},{hi:"डेटा/फाइल्स",en:"Data/files"},{hi:"गाने",en:"Only songs"},{hi:"फोटो",en:"Only photos"}],correct:1,exp:{hi:"डेटा/फाइल्स।",en:"Data/files."}},
+                     {q:{hi:"₹5000 पर 10% SI 3 साल?",en:"₹5000 at 10% SI for 3 years?"},
+                      options:[{hi:"₹1000",en:"₹1000"},{hi:"₹1500",en:"₹1500"},{hi:"₹2000",en:"₹2000"},{hi:"₹2500",en:"₹2500"}],correct:1,exp:{hi:"5000×0.1×3=1500",en:"5000×0.1×3=1500"}}],
+                    [{q:{hi:"₹100 पर 100% CI 2 साल?",en:"₹100 at 100% CI for 2 years?"},
+                      options:[{hi:"₹200",en:"₹200"},{hi:"₹300",en:"₹300"},{hi:"₹400",en:"₹400"},{hi:"₹500",en:"₹500"}],correct:2,exp:{hi:"100×2²=400",en:"100×2²=400"}},
+                     {q:{hi:"Linux क्या है?",en:"Linux is?"},
+                      options:[{hi:"हार्डवेयर",en:"Hardware"},{hi:"OS",en:"OS"},{hi:"गेम",en:"Game"},{hi:"ऐप",en:"App"}],correct:1,exp:{hi:"OS है।",en:"It's an OS."}},
+                     {q:{hi:"RAM बढ़ाने से क्या होता है?",en:"Increasing RAM does?"},
+                      options:[{hi:"धीमा",en:"Slower"},{hi:"तेज़",en:"Faster"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"खराब",en:"Bad"}],correct:1,exp:{hi:"तेज़ होता है।",en:"Faster."}},
+                     {q:{hi:"₹10000 पर 10% SI 1 साल?",en:"₹10000 at 10% SI for 1 year?"},
+                      options:[{hi:"₹1000",en:"₹1000"},{hi:"₹2000",en:"₹2000"},{hi:"₹500",en:"₹500"},{hi:"₹100",en:"₹100"}],correct:0,exp:{hi:"10000×0.1=1000",en:"10000×0.1=1000"}},
+                     {q:{hi:"हार्डवेयर में क्या आता है?",en:"Hardware includes?"},
+                      options:[{hi:"Windows",en:"Windows"},{hi:"CPU",en:"CPU"},{hi:"Word",en:"Word"},{hi:"Chrome",en:"Chrome"}],correct:1,exp:{hi:"CPU हार्डवेयर है।",en:"CPU is hardware."}}],
+                    [{q:{hi:"अल्बर्ट आइंस्टीन ने CI को क्या कहा?",en:"Einstein called CI?"},
+                      options:[{hi:"साधारण ब्याज",en:"SI"},{hi:"8वां अजूबा",en:"8th wonder"},{hi:"7वां अजूबा",en:"7th wonder"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"8वां अजूबा।",en:"8th wonder."}},
+                     {q:{hi:"₹1000 पर 20% CI 2 साल?",en:"₹1000 at 20% CI for 2 years?"},
+                      options:[{hi:"₹1200",en:"₹1200"},{hi:"₹1400",en:"₹1400"},{hi:"₹1440",en:"₹1440"},{hi:"₹1500",en:"₹1500"}],correct:2,exp:{hi:"1000×1.44=1440",en:"1000×1.44=1440"}},
+                     {q:{hi:"फोन में OS कौन सा है (आमतौर)?",en:"Phone OS usually?"},
+                      options:[{hi:"Windows",en:"Windows"},{hi:"Android/iOS",en:"Android/iOS"},{hi:"Linux",en:"Linux"},{hi:"macOS",en:"macOS"}],correct:1,exp:{hi:"Android या iOS।",en:"Android or iOS."}},
+                     {q:{hi:"SSD और HDD में कौन तेज़?",en:"SSD vs HDD - faster?"},
+                      options:[{hi:"HDD",en:"HDD"},{hi:"SSD",en:"SSD"},{hi:"बराबर",en:"Equal"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"SSD तेज़ है।",en:"SSD is faster."}},
+                     {q:{hi:"₹100 पर 50% CI 2 साल?",en:"₹100 at 50% CI for 2 years?"},
+                      options:[{hi:"₹150",en:"₹150"},{hi:"₹200",en:"₹200"},{hi:"₹225",en:"₹225"},{hi:"₹250",en:"₹250"}],correct:2,exp:{hi:"100×1.5²=225",en:"100×1.5²=225"}}],
+                    [{q:{hi:"CI में असली जादू क्या है?",en:"Real magic of CI?"},
+                      options:[{hi:"तेज़ कमाई",en:"Fast earning"},{hi:"ब्याज पर ब्याज",en:"Interest on interest"},{hi:"कम खर्च",en:"Low cost"},{hi:"कोई नहीं",en:"None"}],correct:1,exp:{hi:"ब्याज पर ब्याज।",en:"Interest on interest."}},
+                     {q:{hi:"₹1000 पर 15% CI 3 साल?",en:"₹1000 at 15% CI for 3 years?"},
+                      options:[{hi:"₹1500",en:"₹1500"},{hi:"₹1520",en:"₹1520"},{hi:"₹1521",en:"₹1521"},{hi:"₹1600",en:"₹1600"}],correct:2,exp:{hi:"1000×1.15³≈1521",en:"≈1521"}},
+                     {q:{hi:"कंप्यूटर में GPU किसके लिए?",en:"GPU used for?"},
+                      options:[{hi:"गाना",en:"Songs"},{hi:"गेम्स और ग्राफिक्स",en:"Games & graphics"},{hi:"टाइपिंग",en:"Typing"},{hi:"स्टोरेज",en:"Storage"}],correct:1,exp:{hi:"ग्राफिक्स के लिए।",en:"For graphics."}},
+                     {q:{hi:"SI और CI में कौन ज्यादा देता है?",en:"SI vs CI - who gives more?"},
+                      options:[{hi:"SI",en:"SI"},{hi:"CI",en:"CI"},{hi:"बराबर",en:"Equal"},{hi:"कोई नहीं",en:"None"}],correct:1,exp:{hi:"CI ज्यादा देता है।",en:"CI gives more."}},
+                     {q:{hi:"CI सबसे ज्यादा कब फायदेमंद?",en:"CI most beneficial when?"},
+                      options:[{hi:"कम समय",en:"Short time"},{hi:"ज्यादा समय",en:"Long time"},{hi:"कोई फर्क नहीं",en:"No difference"},{hi:"कभी नहीं",en:"Never"}],correct:1,exp:{hi:"ज्यादा समय।",en:"Long time."}}]
                 ]
             },
+
             7: {
-                title: { hi: "कक्षा 7: बजट और HTML", en: "Class 7: Budgeting & HTML" },
+                title: { hi: "कक्षा 7: बजट और HTML", en: "Class 7: Budget & HTML" },
                 lessons: [
-                    { title: {hi:"50-30-20 बजट नियम", en:"50-30-20 Budget Rule"},
-                      desc: {hi:"कमाई को कैसे बाँटें?", en:"How to distribute income?"},
-                      youtube: "https://www.youtube.com/results?search_query=50+30+20+budget+rule+hindi",
-                      read: {hi:"50-30-20 नियम (Elizabeth Warren का):\n\n🟢 50% - जरूरतें (Needs): किराया, खाना, बिजली, किताबें\n🟡 30% - इच्छाएँ (Wants): मूवी, खेल, शौक\n🔵 20% - बचत/निवेश (Savings/Investment): भविष्य के लिए\n\nउदाहरण: ₹1000 मिले तो\n• ₹500 जरूरतों पर\n• ₹300 इच्छाओं पर\n• ₹200 बचाएं और निवेश करें\n\n🌟 जब आप बड़े हों और पॉकेट मनी या कमाई मिले, इस नियम का पालन करें!",
-                            en:"50-30-20 Rule (by Elizabeth Warren):\n\n🟢 50% - Needs: rent, food, electricity, books\n🟡 30% - Wants: movies, games, hobbies\n🔵 20% - Savings/Investment: for future\n\nExample: If you get ₹1000\n• ₹500 on needs\n• ₹300 on wants\n• ₹200 saved & invested\n\n🌟 Follow this rule when you get pocket money or income!"} },
-                    { title: {hi:"HTML - पहला वेब पेज", en:"HTML - Your First Web Page"},
-                      desc: {hi:"वेबसाइट बनाना सीखें।", en:"Learn to build websites."},
-                      youtube: "https://www.youtube.com/results?search_query=html+tutorial+for+beginners+hindi",
-                      read: {hi:"HTML (HyperText Markup Language) वेबसाइट बनाने की भाषा है।\n\nएक बेसिक HTML फाइल:\n\n<!DOCTYPE html>\n<html>\n<head>\n  <title>मेरी वेबसाइट</title>\n</head>\n<body>\n  <h1>नमस्ते दुनिया!</h1>\n  <p>यह मेरा पहला पेज है।</p>\n</body>\n</html>\n\n🔹 h1-h6: हेडिंग (Heading)\n🔹 p: पैराग्राफ (Paragraph)\n🔹 img: तस्वीर\n🔹 a: लिंक\n🔹 ul/li: लिस्ट\n\n📱 मोबाइल पर Acode या TrebEdit ऐप से HTML लिख सकते हैं।\n💻 कंप्यूटर पर Notepad खोलें → कोड लिखें → .html सेव करें → ब्राउज़र में खोलें!",
-                            en:"HTML (HyperText Markup Language) is used to build websites.\n\nBasic HTML file:\n\n<!DOCTYPE html>\n<html>\n<head>\n  <title>My Website</title>\n</head>\n<body>\n  <h1>Hello World!</h1>\n  <p>This is my first page.</p>\n</body>\n</html>\n\n🔹 h1-h6: Heading\n🔹 p: Paragraph\n🔹 img: Image\n🔹 a: Link\n🔹 ul/li: List\n\n📱 Use Acode or TrebEdit app on mobile.\n💻 On computer: Open Notepad → write code → save as .html → open in browser!"} }
+                    { title:{hi:"50-30-20 बजट नियम", en:"50-30-20 Budget Rule"},
+                      desc:{hi:"कमाई कैसे बाँटें?", en:"How to distribute income?"},
+                      youtube:"https://www.youtube.com/results?search_query=50+30+20+budget+rule+hindi",
+                      read:{hi:"50% जरूरतें, 30% इच्छाएँ, 20% बचत/निवेश।\n\n₹1000 मिले: ₹500 जरूरत, ₹300 इच्छा, ₹200 बचत।",
+                            en:"50% needs, 30% wants, 20% savings/investment.\n\n₹1000: ₹500 needs, ₹300 wants, ₹200 savings."} },
+                    { title:{hi:"HTML - पहला वेब पेज", en:"HTML - First Web Page"},
+                      desc:{hi:"वेबसाइट बनाना।", en:"Build website."},
+                      youtube:"https://www.youtube.com/results?search_query=html+tutorial+for+beginners+hindi",
+                      read:{hi:"HTML वेबसाइट बनाने की भाषा:\n\n<html>\n<body>\n<h1>नमस्ते!</h1>\n<p>मेरा पहला पेज</p>\n</body>\n</html>\n\nटैग: h1-h6, p, img, a, ul, li",
+                            en:"HTML for websites:\n\n<html>\n<body>\n<h1>Hello!</h1>\n<p>First page</p>\n</body>\n</html>\n\nTags: h1-h6, p, img, a, ul, li"} }
                 ],
-                tasks: [
-                    { hi: "अपनी पॉकेट मनी का 50-30-20 बजट बनाएं।", en: "Create 50-30-20 budget of your pocket money." },
-                    { hi: "Notepad/Acode में HTML से अपना नाम लिखकर वेबपेज बनाएं।", en: "Create a web page showing your name using HTML." },
-                    { hi: "अपनी साप्ताहिक खर्च की सूची बनाएं।", en: "List your weekly expenses." }
+                tasksPool: [
+                    [{hi:"पॉकेट मनी का 50-30-20 बजट बनाएं।",en:"Make 50-30-20 budget."},{hi:"HTML से अपना नाम वेबपेज बनाएं।",en:"Make name webpage in HTML."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"₹200 का 50-30-20 हिसाब करें।",en:"Calculate 50-30-20 for ₹200."},{hi:"HTML में <h1> और <p> टैग याद करें।",en:"Memorize h1, p tags."},{hi:"₹15 बचाएं।",en:"Save ₹15."}],
+                    [{hi:"₹500 का बजट बनाएं।",en:"Make ₹500 budget."},{hi:"HTML में 3 heading बनाएं।",en:"Make 3 headings in HTML."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"साप्ताहिक खर्च लिखें।",en:"Write weekly expenses."},{hi:"Acode/Notepad में HTML फाइल बनाएं।",en:"Make HTML file in editor."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"बजट से क्या फायदा?",en:"Benefit of budget?"},{hi:"HTML में <img> से फोटो जोड़ें।",en:"Add image in HTML."},{hi:"₹10 बचाएं।",en:"Save ₹10."}],
+                    [{hi:"20% बचत का क्या करें?",en:"What to do with 20% savings?"},{hi:"HTML में <a> लिंक बनाएं।",en:"Make link in HTML."},{hi:"₹40 बचाएं।",en:"Save ₹40."}],
+                    [{hi:"सप्ताह का पूरा बजट रिव्यू करें।",en:"Review full week budget."},{hi:"अपना पहला वेबपेज पूरा करें।",en:"Complete first webpage."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"50-30-20 नियम में 20% किसके लिए है?", en:"In 50-30-20 rule, what is 20% for?"},
-                      options: [{hi:"मनोरंजन", en:"Entertainment"}, {hi:"बचत और निवेश", en:"Savings & Investment"}, {hi:"कपड़े", en:"Clothes"}],
-                      correct: 1,
-                      exp: {hi:"20% हिस्सा हमेशा बचत और निवेश के लिए होना चाहिए।", en:"20% should always be for savings and investment."} },
-                    { q: {hi:"HTML में हेडिंग के लिए कौन सा टैग है?", en:"Which tag is used for heading in HTML?"},
-                      options: [{hi:"<p>", en:"<p>"}, {hi:"<h1>", en:"<h1>"}, {hi:"<div>", en:"<div>"}],
-                      correct: 1,
-                      exp: {hi:"<h1> से <h6> तक हेडिंग टैग हैं।", en:"<h1> to <h6> are heading tags."} }
+                quizPool: [
+                    [{q:{hi:"50-30-20 नियम में 20% किसके लिए?",en:"20% in 50-30-20 rule?"},
+                      options:[{hi:"मनोरंजन",en:"Entertainment"},{hi:"बचत/निवेश",en:"Savings/Investment"},{hi:"कपड़े",en:"Clothes"},{hi:"खाना",en:"Food"}],correct:1,exp:{hi:"बचत/निवेश के लिए।",en:"For savings."}},
+                     {q:{hi:"HTML में हेडिंग टैग?",en:"HTML heading tag?"},
+                      options:[{hi:"<p>",en:"<p>"},{hi:"<h1>",en:"<h1>"},{hi:"<div>",en:"<div>"},{hi:"<a>",en:"<a>"}],correct:1,exp:{hi:"<h1> टैग।",en:"<h1> tag."}},
+                     {q:{hi:"₹1000 का 50% कितना?",en:"50% of ₹1000?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹300",en:"₹300"},{hi:"₹500",en:"₹500"},{hi:"₹700",en:"₹700"}],correct:2,exp:{hi:"1000×0.5=500",en:"1000×0.5=500"}},
+                     {q:{hi:"HTML में पैराग्राफ टैग?",en:"HTML paragraph tag?"},
+                      options:[{hi:"<p>",en:"<p>"},{hi:"<h1>",en:"<h1>"},{hi:"<a>",en:"<a>"},{hi:"<img>",en:"<img>"}],correct:0,exp:{hi:"<p> टैग।",en:"<p> tag."}},
+                     {q:{hi:"₹500 का 30% कितना?",en:"30% of ₹500?"},
+                      options:[{hi:"₹50",en:"₹50"},{hi:"₹100",en:"₹100"},{hi:"₹150",en:"₹150"},{hi:"₹200",en:"₹200"}],correct:2,exp:{hi:"500×0.3=150",en:"500×0.3=150"}}],
+                    [{q:{hi:"HTML में लिंक टैग?",en:"HTML link tag?"},
+                      options:[{hi:"<a>",en:"<a>"},{hi:"<link>",en:"<link>"},{hi:"<href>",en:"<href>"},{hi:"<url>",en:"<url>"}],correct:0,exp:{hi:"<a> टैग।",en:"<a> tag."}},
+                     {q:{hi:"50-30-20 में जरूरतें कितना%?",en:"Needs % in 50-30-20?"},
+                      options:[{hi:"20%",en:"20%"},{hi:"30%",en:"30%"},{hi:"50%",en:"50%"},{hi:"70%",en:"70%"}],correct:2,exp:{hi:"50% जरूरतें।",en:"50% needs."}},
+                     {q:{hi:"HTML का फुल फॉर्म?",en:"HTML full form?"},
+                      options:[{hi:"HyperText Markup Language",en:"HyperText Markup Language"},{hi:"Home Tool Markup Language",en:"Home Tool Markup Language"},{hi:"Hyperlink Text Markup",en:"Hyperlink Text Markup"},{hi:"High Text Language",en:"High Text Language"}],correct:0,exp:{hi:"HyperText Markup Language।",en:"HyperText Markup Language."}},
+                     {q:{hi:"₹200 का 20% बचत?",en:"20% savings of ₹200?"},
+                      options:[{hi:"₹20",en:"₹20"},{hi:"₹40",en:"₹40"},{hi:"₹60",en:"₹60"},{hi:"₹80",en:"₹80"}],correct:1,exp:{hi:"200×0.2=40",en:"200×0.2=40"}},
+                     {q:{hi:"HTML में इमेज टैग?",en:"HTML image tag?"},
+                      options:[{hi:"<img>",en:"<img>"},{hi:"<image>",en:"<image>"},{hi:"<pic>",en:"<pic>"},{hi:"<photo>",en:"<photo>"}],correct:0,exp:{hi:"<img> टैग।",en:"<img> tag."}}],
+                    [{q:{hi:"₹1000 का 20% बचत?",en:"20% of ₹1000 saved?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹200",en:"₹200"},{hi:"₹300",en:"₹300"},{hi:"₹500",en:"₹500"}],correct:1,exp:{hi:"1000×0.2=200",en:"1000×0.2=200"}},
+                     {q:{hi:"HTML में <ul> और <li> किसके लिए?",en:"<ul> and <li> for?"},
+                      options:[{hi:"टेबल",en:"Table"},{hi:"लिस्ट",en:"List"},{hi:"फोटो",en:"Photo"},{hi:"लिंक",en:"Link"}],correct:1,exp:{hi:"लिस्ट के लिए।",en:"For lists."}},
+                     {q:{hi:"बजट क्यों जरूरी है?",en:"Why budget needed?"},
+                      options:[{hi:"खर्च बढ़ाने",en:"Increase expenses"},{hi:"पैसे की प्लानिंग",en:"Money planning"},{hi:"दिखाने",en:"Show-off"},{hi:"कोई कारण नहीं",en:"No reason"}],correct:1,exp:{hi:"पैसे की प्लानिंग।",en:"Money planning."}},
+                     {q:{hi:"₹300 का 30% इच्छाएँ?",en:"30% wants of ₹300?"},
+                      options:[{hi:"₹30",en:"₹30"},{hi:"₹60",en:"₹60"},{hi:"₹90",en:"₹90"},{hi:"₹150",en:"₹150"}],correct:2,exp:{hi:"300×0.3=90",en:"300×0.3=90"}},
+                     {q:{hi:"HTML में टेबल टैग?",en:"HTML table tag?"},
+                      options:[{hi:"<table>",en:"<table>"},{hi:"<tab>",en:"<tab>"},{hi:"<tr>",en:"<tr>"},{hi:"<row>",en:"<row>"}],correct:0,exp:{hi:"<table> टैग।",en:"<table> tag."}}],
+                    [{q:{hi:"₹500 का 50% जरूरतें?",en:"50% needs of ₹500?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹150",en:"₹150"},{hi:"₹250",en:"₹250"},{hi:"₹300",en:"₹300"}],correct:2,exp:{hi:"500×0.5=250",en:"500×0.5=250"}},
+                     {q:{hi:"HTML कहाँ चलता है?",en:"Where HTML runs?"},
+                      options:[{hi:"सिर्फ ऑफलाइन",en:"Only offline"},{hi:"वेब ब्राउज़र में",en:"In web browsers"},{hi:"सिर्फ फोन",en:"Only phone"},{hi:"कहीं नहीं",en:"Nowhere"}],correct:1,exp:{hi:"ब्राउज़र में।",en:"In browsers."}},
+                     {q:{hi:"₹2000 का 20% बचत?",en:"20% of ₹2000?"},
+                      options:[{hi:"₹200",en:"₹200"},{hi:"₹400",en:"₹400"},{hi:"₹600",en:"₹600"},{hi:"₹1000",en:"₹1000"}],correct:1,exp:{hi:"2000×0.2=400",en:"2000×0.2=400"}},
+                     {q:{hi:"<html> टैग क्या है?",en:"What is <html> tag?"},
+                      options:[{hi:"हेडिंग",en:"Heading"},{hi:"रूट टैग",en:"Root tag"},{hi:"लिंक",en:"Link"},{hi:"फोटो",en:"Photo"}],correct:1,exp:{hi:"रूट टैग।",en:"Root tag."}},
+                     {q:{hi:"बजट में 50% किसके लिए?",en:"50% in budget for?"},
+                      options:[{hi:"जरूरतें",en:"Needs"},{hi:"इच्छाएँ",en:"Wants"},{hi:"बचत",en:"Savings"},{hi:"मनोरंजन",en:"Entertainment"}],correct:0,exp:{hi:"जरूरतें।",en:"Needs."}}],
+                    [{q:{hi:"₹10000 का 30% इच्छाएँ?",en:"30% wants of ₹10000?"},
+                      options:[{hi:"₹1000",en:"₹1000"},{hi:"₹2000",en:"₹2000"},{hi:"₹3000",en:"₹3000"},{hi:"₹5000",en:"₹5000"}],correct:2,exp:{hi:"10000×0.3=3000",en:"10000×0.3=3000"}},
+                     {q:{hi:"<head> टैग में क्या होता है?",en:"What's in <head> tag?"},
+                      options:[{hi:"विषय-वस्तु",en:"Content"},{hi:"मेटा जानकारी (title)",en:"Metadata (title)"},{hi:"लिंक",en:"Links"},{hi:"फोटो",en:"Photos"}],correct:1,exp:{hi:"मेटा जानकारी।",en:"Metadata."}},
+                     {q:{hi:"बजट से क्या होता है?",en:"Budget helps with?"},
+                      options:[{hi:"खर्च बढ़ाना",en:"Increasing expense"},{hi:"पैसे की सही प्लानिंग",en:"Right planning"},{hi:"दिखाना",en:"Show-off"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"सही प्लानिंग।",en:"Right planning."}},
+                     {q:{hi:"₹1500 का 50% जरूरतें?",en:"50% needs of ₹1500?"},
+                      options:[{hi:"₹300",en:"₹300"},{hi:"₹500",en:"₹500"},{hi:"₹750",en:"₹750"},{hi:"₹1000",en:"₹1000"}],correct:2,exp:{hi:"1500×0.5=750",en:"1500×0.5=750"}},
+                     {q:{hi:"<body> टैग क्या है?",en:"<body> tag is?"},
+                      options:[{hi:"हेडिंग",en:"Heading"},{hi:"मुख्य कंटेंट",en:"Main content"},{hi:"लिंक",en:"Link"},{hi:"मेटा",en:"Meta"}],correct:1,exp:{hi:"मुख्य कंटेंट।",en:"Main content."}}],
+                    [{q:{hi:"₹500 का 20% बचत?",en:"20% of ₹500?"},
+                      options:[{hi:"₹50",en:"₹50"},{hi:"₹100",en:"₹100"},{hi:"₹150",en:"₹150"},{hi:"₹200",en:"₹200"}],correct:1,exp:{hi:"500×0.2=100",en:"500×0.2=100"}},
+                     {q:{hi:"HTML में कमेंट कैसे लिखें?",en:"HTML comment?"},
+                      options:[{hi:"// comment",en:"// comment"},{hi:"<!-- comment -->",en:"<!-- comment -->"},{hi:"# comment",en:"# comment"},{hi:"/* comment */",en:"/* comment */"}],correct:1,exp:{hi:"<!-- -->",en:"<!-- -->"}},
+                     {q:{hi:"CI और बजट में सम्बन्ध?",en:"CI and budget relation?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"बजट से बचा पैसा CI में निवेश",en:"Budget savings in CI"},{hi:"दोनों अलग",en:"Different"},{hi:"एक ही",en:"Same"}],correct:1,exp:{hi:"बचत CI में निवेश।",en:"Save in CI."}},
+                     {q:{hi:"₹1000 का 30% इच्छाएँ?",en:"30% wants of ₹1000?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹200",en:"₹200"},{hi:"₹300",en:"₹300"},{hi:"₹500",en:"₹500"}],correct:2,exp:{hi:"1000×0.3=300",en:"1000×0.3=300"}},
+                     {q:{hi:"HTML का उपयोग?",en:"HTML used for?"},
+                      options:[{hi:"वेबसाइट बनाना",en:"Building websites"},{hi:"गेम खेलना",en:"Playing games"},{hi:"गाना",en:"Singing"},{hi:"कोई नहीं",en:"None"}],correct:0,exp:{hi:"वेबसाइट बनाना।",en:"Building websites."}}]
                 ]
             },
+
             8: {
                 title: { hi: "कक्षा 8: स्टॉक मार्केट और निवेश", en: "Class 8: Stock Market & Investment" },
                 lessons: [
-                    { title: {hi:"शेयर बाजार क्या है?", en:"What is Stock Market?"},
-                      desc: {hi:"कंपनियों में हिस्सेदारी खरीदना सीखें।", en:"Learn to buy ownership in companies."},
-                      youtube: "https://www.youtube.com/results?search_query=stock+market+for+beginners+hindi",
-                      read: {hi:"शेयर बाजार (Stock Market) वह जगह है जहाँ हम कंपनियों के शेयर (हिस्से) खरीद-बेच सकते हैं।\n\n🔹 शेयर (Share): कंपनी का छोटा सा हिस्सा\n🔹 NSE/BSE: भारत के दो मुख्य स्टॉक एक्सचेंज\n🔹 सेंसेक्स/निफ्टी: मार्केट का इंडेक्स\n\n🌟 शेयर खरीदने का मतलब:\n• आप उस कंपनी के हिस्सेदार बन गए\n• कंपनी के प्रॉफिट में हिस्सा मिलेगा (डिविडेंड)\n• कंपनी बढ़ेगी तो आपका शेयर महंगा होगा\n• कंपनी डूबेगी तो पैसा भी जा सकता है (रिस्क)\n\n📈 म्यूचुअल फंड (Mutual Fund): कई लोगों का पैसा इकट्ठा करके एक्सपर्ट शेयर खरीदते हैं - शुरुआत करने वालों के लिए बेहतर!\n\n⚠️ निवेश से पहले पढ़ाई जरूरी है - बिना समझे पैसा न लगाएं!",
-                            en:"Stock Market is where we buy/sell shares of companies.\n\n🔹 Share: Small piece of a company\n🔹 NSE/BSE: India's two main exchanges\n🔹 Sensex/Nifty: Market index\n\n🌟 Buying a share means:\n• You become a part-owner\n• Get share of profits (dividend)\n• Share price rises if company grows\n• You can lose money too (risk)\n\n📈 Mutual Fund: Money pooled from many investors, managed by experts - better for beginners!\n\n⚠️ Learn before investing - never invest blindly!"} },
-                    { title: {hi:"Python कोडिंग की शुरुआत", en:"Python Coding Basics"},
-                      desc: {hi:"दुनिया की सबसे आसान प्रोग्रामिंग भाषा।", en:"World's easiest programming language."},
-                      youtube: "https://www.youtube.com/results?search_query=python+tutorial+in+hindi+beginners",
-                      read: {hi:"Python एक आसान प्रोग्रामिंग भाषा है जिसका उपयोग AI, वेब, डेटा साइंस में होता है।\n\nपहला प्रोग्राम:\nprint(\"Hello World!\")\n\nचर (Variables):\nname = \"राहुल\"\nage = 15\nprint(\"मेरा नाम\", name, \"है\")\n\nशर्तें (Conditions):\nif age >= 18:\n    print(\"वयस्क\")\nelse:\n    print(\"बालक\")\n\nलूप (Loop):\nfor i in range(5):\n    print(\"नमस्ते\", i)\n\n📱 मोबाइल पर: Pydroid 3 ऐप\n💻 कंप्यूटर पर: python.org से डाउनलोड करें या Google Colab (free online)",
-                            en:"Python is an easy language used in AI, Web, Data Science.\n\nFirst program:\nprint(\"Hello World!\")\n\nVariables:\nname = \"Rahul\"\nage = 15\nprint(\"My name is\", name)\n\nConditions:\nif age >= 18:\n    print(\"Adult\")\nelse:\n    print(\"Minor\")\n\nLoop:\nfor i in range(5):\n    print(\"Hello\", i)\n\n📱 Mobile: Pydroid 3 app\n💻 Computer: python.org or Google Colab (free online)"} }
+                    { title:{hi:"शेयर बाजार", en:"Stock Market"},
+                      desc:{hi:"कंपनियों में हिस्सेदारी।", en:"Ownership in companies."},
+                      youtube:"https://www.youtube.com/results?search_query=stock+market+for+beginners+hindi",
+                      read:{hi:"शेयर बाजार = कंपनियों के शेयर खरीद-बेचने की जगह।\n\nNSE/BSE: भारत के 2 मुख्य एक्सचेंज\nसेंसेक्स/निफ्टी: इंडेक्स\n\nशेयर = कंपनी का हिस्सा। प्रॉफिट में हिस्सा (डिविडेंड) मिलता है। रिस्क भी है।",
+                            en:"Stock market = buy/sell shares.\n\nNSE/BSE: India's 2 exchanges\nSensex/Nifty: indices\n\nShare = company part. Dividend received. Risk exists."} },
+                    { title:{hi:"Python कोडिंग", en:"Python Coding"},
+                      desc:{hi:"आसान प्रोग्रामिंग।", en:"Easy programming."},
+                      youtube:"https://www.youtube.com/results?search_query=python+tutorial+in+hindi+beginners",
+                      read:{hi:"Python:\nprint(\"Hello World!\")\n\nname = \"राहुल\"\nprint(\"नमस्ते\", name)\n\nfor i in range(5):\n    print(i)\n\nमोबाइल: Pydroid 3\nकंप्यूटर: python.org या Google Colab",
+                            en:"Python:\nprint(\"Hello World!\")\n\nname = \"Rahul\"\nprint(\"Hello\", name)\n\nfor i in range(5):\n    print(i)\n\nMobile: Pydroid 3\nComputer: python.org or Colab"} }
                 ],
-                tasks: [
-                    { hi: "NSE/BSE, सेंसेक्स, निफ्टी का फुल फॉर्म बोलकर बताएं।", en: "Say full forms of NSE/BSE, Sensex, Nifty." },
-                    { hi: "Pydroid 3 या Colab में 'Hello World' प्रिंट करें।", en: "Print 'Hello World' in Pydroid 3 or Colab." },
-                    { hi: "3 कंपनियों के नाम लिखें जिनके शेयर आप खरीदना चाहेंगे।", en: "Write 3 companies whose shares you'd like to buy." }
+                tasksPool: [
+                    [{hi:"NSE/BSE फुल फॉर्म बोलें।",en:"Say NSE/BSE full form."},{hi:"Pydroid/Colab में Hello World।",en:"Hello World in Pydroid/Colab."},{hi:"3 कंपनियों के नाम लिखें।",en:"Name 3 companies."}],
+                    [{hi:"शेयर क्या है - बोलें।",en:"Say what is share."},{hi:"Python में 2 variables बनाएं।",en:"Create 2 variables in Python."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"Nifty 50 क्या है?",en:"What is Nifty 50?"},{hi:"Python में loop लिखें।",en:"Write loop in Python."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"म्यूचुअल फंड क्या है?",en:"What is mutual fund?"},{hi:"Python में if-else लिखें।",en:"Write if-else in Python."},{hi:"₹40 बचाएं।",en:"Save ₹40."}],
+                    [{hi:"सेंसेक्स और निफ्टी में अंतर।",en:"Sensex vs Nifty."},{hi:"Python से जोड़-घटाव करें।",en:"Add/subtract in Python."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"डिविडेंड क्या है?",en:"What is dividend?"},{hi:"Python में 5 बार नाम प्रिंट करें।",en:"Print name 5 times."},{hi:"₹35 बचाएं।",en:"Save ₹35."}],
+                    [{hi:"सप्ताह में सीखे 5 शेयर बाजार टर्म।",en:"5 stock terms learned."},{hi:"अपना Python प्रोग्राम बनाएं।",en:"Build your Python program."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"किसी कंपनी का शेयर खरीदने का क्या मतलब है?", en:"What does buying a company's share mean?"},
-                      options: [{hi:"कंपनी को उधार देना", en:"Lending to company"}, {hi:"कंपनी में हिस्सेदारी", en:"Ownership in company"}, {hi:"नौकरी पाना", en:"Getting a job"}],
-                      correct: 1,
-                      exp: {hi:"शेयर खरीदने से आप आंशिक मालिक बनते हैं।", en:"Buying shares makes you a part-owner."} }
+                quizPool: [
+                    [{q:{hi:"शेयर खरीदने का मतलब?",en:"Buying share means?"},
+                      options:[{hi:"कंपनी को उधार",en:"Lending"},{hi:"कंपनी में हिस्सा",en:"Ownership"},{hi:"नौकरी",en:"Job"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"हिस्सेदारी।",en:"Ownership."}},
+                     {q:{hi:"NSE का फुल फॉर्म?",en:"NSE full form?"},
+                      options:[{hi:"National Stock Exchange",en:"National Stock Exchange"},{hi:"New Stock Exchange",en:"New Stock Exchange"},{hi:"National Saving Exchange",en:"National Saving Exchange"},{hi:"Nifty Stock Exchange",en:"Nifty Stock Exchange"}],correct:0,exp:{hi:"National Stock Exchange।",en:"National Stock Exchange."}},
+                     {q:{hi:"Python में प्रिंट का सिंटैक्स?",en:"Python print syntax?"},
+                      options:[{hi:"echo()",en:"echo()"},{hi:"print()",en:"print()"},{hi:"printf()",en:"printf()"},{hi:"write()",en:"write()"}],correct:1,exp:{hi:"print()",en:"print()"}},
+                     {q:{hi:"BSE का फुल फॉर्म?",en:"BSE full form?"},
+                      options:[{hi:"Bombay Stock Exchange",en:"Bombay Stock Exchange"},{hi:"Bangalore Stock Exchange",en:"Bangalore Stock Exchange"},{hi:"Bank Stock Exchange",en:"Bank Stock Exchange"},{hi:"Business Stock Exchange",en:"Business Stock Exchange"}],correct:0,exp:{hi:"Bombay Stock Exchange।",en:"Bombay Stock Exchange."}},
+                     {q:{hi:"Python में string कैसे लिखें?",en:"Python string?"},
+                      options:[{hi:"'hello' या \"hello\"",en:"'hello' or \"hello\""},{hi:"hello",en:"hello"},{hi:"(hello)",en:"(hello)"},{hi:"[hello]",en:"[hello]"}],correct:0,exp:{hi:"कोट्स में।",en:"In quotes."}}],
+                    [{q:{hi:"Nifty 50 में कितनी कंपनियाँ?",en:"Companies in Nifty 50?"},
+                      options:[{hi:"30",en:"30"},{hi:"50",en:"50"},{hi:"100",en:"100"},{hi:"500",en:"500"}],correct:1,exp:{hi:"50 कंपनियाँ।",en:"50 companies."}},
+                     {q:{hi:"डिविडेंड कब मिलता है?",en:"When dividend received?"},
+                      options:[{hi:"कभी नहीं",en:"Never"},{hi:"कंपनी प्रॉफिट करे",en:"When company profits"},{hi:"हर दिन",en:"Daily"},{hi:"सिर्फ पहले साल",en:"Only 1st year"}],correct:1,exp:{hi:"प्रॉफिट पर।",en:"On profit."}},
+                     {q:{hi:"Python में variable?",en:"Python variable?"},
+                      options:[{hi:"x = 5",en:"x = 5"},{hi:"x := 5",en:"x := 5"},{hi:"let x = 5",en:"let x = 5"},{hi:"var x = 5",en:"var x = 5"}],correct:0,exp:{hi:"x = 5",en:"x = 5"}},
+                     {q:{hi:"सेंसेक्स किस एक्सचेंज का?",en:"Sensex is of?"},
+                      options:[{hi:"NSE",en:"NSE"},{hi:"BSE",en:"BSE"},{hi:"NYSE",en:"NYSE"},{hi:"NASDAQ",en:"NASDAQ"}],correct:1,exp:{hi:"BSE का।",en:"BSE's."}},
+                     {q:{hi:"Python में loop?",en:"Python loop?"},
+                      options:[{hi:"for i in range(5):",en:"for i in range(5):"},{hi:"for(i=0;i<5;i++)",en:"for(i=0;i<5;i++)"},{hi:"loop 5",en:"loop 5"},{hi:"repeat 5",en:"repeat 5"}],correct:0,exp:{hi:"for i in range(5):",en:"for i in range(5):"}}],
+                    [{q:{hi:"म्यूचुअल फंड क्या है?",en:"Mutual fund is?"},
+                      options:[{hi:"एक शेयर",en:"One share"},{hi:"कई लोगों का पूल",en:"Pool of many investors"},{hi:"बैंक",en:"Bank"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"कई लोगों का पूल।",en:"Pool of investors."}},
+                     {q:{hi:"शेयर में रिस्क?",en:"Share risk?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"पैसा डूब सकता है",en:"Money can be lost"},{hi:"हमेशा फायदा",en:"Always profit"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"पैसा डूब सकता है।",en:"Money can be lost."}},
+                     {q:{hi:"Python में comment?",en:"Python comment?"},
+                      options:[{hi:"//",en:"//"},{hi:"#",en:"#"},{hi:"<!-- -->",en:"<!-- -->"},{hi:"/*",en:"/*"}],correct:1,exp:{hi:"# से।",en:"# symbol."}},
+                     {q:{hi:"NSE और BSE में से पुराना?",en:"Older: NSE or BSE?"},
+                      options:[{hi:"NSE",en:"NSE"},{hi:"BSE",en:"BSE"},{hi:"दोनों बराबर",en:"Equal"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"BSE (1875)।",en:"BSE (1875)."}},
+                     {q:{hi:"Python में string जोड़ना?",en:"Python string concat?"},
+                      options:[{hi:"a + b",en:"a + b"},{hi:"a . b",en:"a . b"},{hi:"a & b",en:"a & b"},{hi:"a - b",en:"a - b"}],correct:0,exp:{hi:"+ से जोड़ते हैं।",en:"Use +."}}],
+                    [{q:{hi:"IPO क्या है?",en:"What is IPO?"},
+                      options:[{hi:"Initial Public Offering",en:"Initial Public Offering"},{hi:"Indian Public Offer",en:"Indian Public Offer"},{hi:"Income Per Offer",en:"Income Per Offer"},{hi:"Internet Public Offer",en:"Internet Public Offer"}],correct:0,exp:{hi:"Initial Public Offering।",en:"Initial Public Offering."}},
+                     {q:{hi:"शेयर बाजार किसकी निगरानी में?",en:"Stock market regulated by?"},
+                      options:[{hi:"RBI",en:"RBI"},{hi:"SEBI",en:"SEBI"},{hi:"कोई नहीं",en:"None"},{hi:"सरकार",en:"Govt"}],correct:1,exp:{hi:"SEBI की निगरानी।",en:"Regulated by SEBI."}},
+                     {q:{hi:"Python में फंक्शन?",en:"Python function?"},
+                      options:[{hi:"def name():",en:"def name():"},{hi:"function name()",en:"function name()"},{hi:"fun name()",en:"fun name()"},{hi:"fn name()",en:"fn name()"}],correct:0,exp:{hi:"def से।",en:"def keyword."}},
+                     {q:{hi:"डिविडेंड क्या है?",en:"Dividend is?"},
+                      options:[{hi:"कंपनी का प्रॉफिट शेयर",en:"Company profit share"},{hi:"बैंक ब्याज",en:"Bank interest"},{hi:"टैक्स",en:"Tax"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"प्रॉफिट शेयर।",en:"Profit share."}},
+                     {q:{hi:"Python में if-else?",en:"Python if-else?"},
+                      options:[{hi:"if x: ... else: ...",en:"if x: ... else: ..."},{hi:"if (x) { } else { }",en:"if (x) { } else { }"},{hi:"if x then else",en:"if x then else"},{hi:"if x do else",en:"if x do else"}],correct:0,exp:{hi:"if x: ... else: ...",en:"if x: ... else: ..."}}],
+                    [{q:{hi:"पोर्टफोलियो क्या है?",en:"Portfolio is?"},
+                      options:[{hi:"एक शेयर",en:"One share"},{hi:"कई निवेशों का समूह",en:"Group of investments"},{hi:"बैंक",en:"Bank"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"कई निवेशों का समूह।",en:"Group of investments."}},
+                     {q:{hi:"शेयर बाजार में पैसा लगाने से पहले?",en:"Before investing in stocks?"},
+                      options:[{hi:"पढ़ाई जरूरी",en:"Study needed"},{hi:"सीधे लगा दें",en:"Invest directly"},{hi:"किसी से पूछें",en:"Ask someone"},{hi:"कोई जरूरत नहीं",en:"No need"}],correct:0,exp:{hi:"पहले पढ़ाई करें।",en:"Study first."}},
+                     {q:{hi:"Python में list?",en:"Python list?"},
+                      options:[{hi:"[1, 2, 3]",en:"[1, 2, 3]"},{hi:"(1, 2, 3)",en:"(1, 2, 3)"},{hi:"{1, 2, 3}",en:"{1, 2, 3}"},{hi:"<1, 2, 3>",en:"<1, 2, 3>"}],correct:0,exp:{hi:"[1, 2, 3]",en:"[1, 2, 3]"}},
+                     {q:{hi:"शेयर का दाम कब बढ़ता है?",en:"Share price rises when?"},
+                      options:[{hi:"कंपनी घाटे में",en:"Company loss"},{hi:"कंपनी बढ़े और मांग ज्यादा",en:"Company grows, demand high"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"कंपनी बढ़े, मांग ज्यादा।",en:"Company grows, demand high."}},
+                     {q:{hi:"Python में output?",en:"Python output?"},
+                      options:[{hi:"echo",en:"echo"},{hi:"print()",en:"print()"},{hi:"printf",en:"printf"},{hi:"cout",en:"cout"}],correct:1,exp:{hi:"print()",en:"print()"}}],
+                    [{q:{hi:"लंबी अवधि में शेयर बाजार कैसा रहा?",en:"Long-term stock market trend?"},
+                      options:[{hi:"गिरता",en:"Falling"},{hi:"बढ़ता",en:"Rising"},{hi:"वही",en:"Same"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"ऐतिहासिक रूप से बढ़ता।",en:"Historically rising."}},
+                     {q:{hi:"Python में range(5) क्या देता?",en:"range(5) gives?"},
+                      options:[{hi:"1,2,3,4,5",en:"1,2,3,4,5"},{hi:"0,1,2,3,4",en:"0,1,2,3,4"},{hi:"0,1,2,3,4,5",en:"0,1,2,3,4,5"},{hi:"5",en:"5"}],correct:1,exp:{hi:"0 से 4 तक।",en:"0 to 4."}},
+                     {q:{hi:"शेयर बाजार में सबसे बड़ा रिस्क?",en:"Biggest risk in stock market?"},
+                      options:[{hi:"पैसा डूबना",en:"Losing money"},{hi:"समय बर्बाद",en:"Time waste"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:0,exp:{hi:"पैसा डूबना।",en:"Losing money."}},
+                     {q:{hi:"पहली बार शेयर खरीदने के लिए क्या जरूरी?",en:"First-time investing needs?"},
+                      options:[{hi:"Demat + Trading अकाउंट",en:"Demat + Trading account"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"सिर्फ पैसे",en:"Only money"},{hi:"पता नहीं",en:"Don't know"}],correct:0,exp:{hi:"Demat + Trading।",en:"Demat + Trading."}},
+                     {q:{hi:"Python किस काम में सबसे लोकप्रिय?",en:"Python most popular for?"},
+                      options:[{hi:"गेम",en:"Games"},{hi:"AI/Data Science",en:"AI/Data Science"},{hi:"ड्राइंग",en:"Drawing"},{hi:"गाना",en:"Singing"}],correct:1,exp:{hi:"AI/Data Science।",en:"AI/Data Science."}}]
                 ]
             },
+
             9: {
                 title: { hi: "कक्षा 9: AI प्रॉम्प्ट इंजीनियरिंग", en: "Class 9: AI Prompt Engineering" },
                 lessons: [
-                    { title: {hi:"प्रॉम्प्ट इंजीनियरिंग सीखें", en:"Learn Prompt Engineering"},
-                      desc: {hi:"AI से सही जवाब कैसे पाएं?", en:"How to get right answers from AI?"},
-                      youtube: "https://www.youtube.com/results?search_query=prompt+engineering+tutorial+hindi",
-                      read: {hi:"AI प्रॉम्प्ट इंजीनियरिंग = AI को सही निर्देश देने की कला।\n\n❌ बुरा प्रॉम्प्ट: \"AI, कुछ बताओ\"\n✅ अच्छा प्रॉम्प्ट: \"AI, मुझे 12 साल के बच्चे को पैसे बचाना सिखाने के लिए 5 आसान टिप्स बताओ, हिंदी में\"\n\n🌟 अच्छे प्रॉम्प्ट के 4 नियम:\n1️⃣ स्पष्ट रहें (Be Clear): क्या चाहिए साफ बताएं\n2️⃣ संदर्भ दें (Context): किसके लिए, क्यों\n3️⃣ फॉर्मेट बताएं (Format): लिस्ट, टेबल, पैराग्राफ\n4️⃣ उदाहरण दें (Example): कैसा जवाब चाहिए\n\n📌 उदाहरण:\n❌ \"Essay on AI\"\n✅ \"AI के फायदे-नुकसान पर 300 शब्द का निबंध लिखो, कक्षा 9 के छात्र के लिए, सरल भाषा में\"\n\n🎯 AI टूल्स:\n• ChatGPT (OpenAI)\n• Gemini (Google)\n• Claude (Anthropic)\n• Copilot (Microsoft)\n\n💰 प्रॉम्प्ट इंजीनियर की सैलरी ₹6-20 लाख/साल!",
-                            en:"AI Prompt Engineering = Art of giving correct instructions to AI.\n\n❌ Bad prompt: \"AI, tell me something\"\n✅ Good prompt: \"AI, give me 5 easy tips to teach 12-year-old about saving money, in English\"\n\n🌟 4 rules of good prompts:\n1️⃣ Be Clear\n2️⃣ Give Context: for whom, why\n3️⃣ Specify Format: list, table, paragraph\n4️⃣ Give Example\n\n📌 Example:\n❌ \"Essay on AI\"\n✅ \"Write a 300-word essay on pros/cons of AI for class 9 student in simple language\"\n\n🎯 AI Tools:\n• ChatGPT (OpenAI)\n• Gemini (Google)\n• Claude (Anthropic)\n• Copilot (Microsoft)\n\n💰 Prompt Engineer salary: ₹6-20 lakh/year!"} },
-                    { title: {hi:"AI से पढ़ाई कैसे करें?", en:"How to study with AI?"},
-                      desc: {hi:"AI को अपना personal tutor बनाएं।", en:"Make AI your personal tutor."},
-                      youtube: "https://www.youtube.com/results?search_query=use+chatgpt+for+study+hindi",
-                      read: {hi:"AI से पढ़ाई के 7 तरीके:\n\n1️⃣ कठिन टॉपिक सरल भाषा में समझें\n   \"Newton's law आसान भाषा में उदाहरण के साथ समझाओ\"\n\n2️⃣ प्रश्न पूछें - होमवर्क में मदद\n   \"इस सवाल को step-by-step solve करके दिखाओ\"\n\n3️⃣ नोट्स बनवाएं\n   \"Photosynthesis पर 10 important points दो\"\n\n4️⃣ क्विज़ बनवाएं\n   \"मुझसे 5 प्रश्न पूछो - त्रिकोणमिति से\"\n\n5️⃣ निबंध लिखवाएं\n   \"मेरे विचार दिए, इन्हें अच्छे निबंध में बदलो\"\n\n6️⃣ भाषा सीखें\n   \"Translate & explain this English sentence in Hindi\"\n\n7️⃣ कोडिंग सीखें\n   \"Python में calculator बनाने का code लिखो, समझाओ\"\n\n⚠️ ध्यान दें:\n• AI गलत भी हो सकता है - verify करें\n• पूरा होमवर्क AI से न करवाएं - खुद भी सोचें\n• अपना नाम, पता, फोन नंबर AI से साझा न करें",
-                            en:"7 ways to study with AI:\n\n1️⃣ Understand tough topics in simple language\n2️⃣ Ask questions - homework help\n3️⃣ Generate notes\n4️⃣ Create quizzes\n5️⃣ Write essays\n6️⃣ Learn languages\n7️⃣ Learn coding\n\n⚠️ Important:\n• AI can be wrong - verify\n• Don't copy entire homework from AI\n• Never share personal info with AI"} }
+                    { title:{hi:"प्रॉम्प्ट इंजीनियरिंग", en:"Prompt Engineering"},
+                      desc:{hi:"AI से सही जवाब।", en:"Right answers from AI."},
+                      youtube:"https://www.youtube.com/results?search_query=prompt+engineering+tutorial+hindi",
+                      read:{hi:"प्रॉम्प्ट इंजीनियरिंग = AI को सही निर्देश देना।\n\n❌ बुरा: \"कुछ बताओ\"\n✅ अच्छा: \"12 साल के बच्चे के लिए 5 बचत टिप्स बताओ, हिंदी में\"\n\n4 नियम:\n1. स्पष्टता\n2. संदर्भ\n3. फॉर्मेट\n4. उदाहरण",
+                            en:"Prompt engineering = right instructions to AI.\n\n❌ Bad: \"Tell me something\"\n✅ Good: \"5 savings tips for 12-year-old, in English\"\n\n4 rules:\n1. Clarity\n2. Context\n3. Format\n4. Example"} },
+                    { title:{hi:"AI से पढ़ाई", en:"Study with AI"},
+                      desc:{hi:"AI को tutor बनाएं।", en:"Make AI your tutor."},
+                      youtube:"https://www.youtube.com/results?search_query=use+chatgpt+for+study+hindi",
+                      read:{hi:"7 तरीके:\n1. टॉपिक सरल भाषा में\n2. प्रश्न पूछें\n3. नोट्स बनवाएं\n4. क्विज़ बनवाएं\n5. निबंध लिखवाएं\n6. भाषा सीखें\n7. कोडिंग सीखें",
+                            en:"7 ways:\n1. Simple topics\n2. Ask questions\n3. Get notes\n4. Get quizzes\n5. Write essays\n6. Learn languages\n7. Learn coding"} }
                 ],
-                tasks: [
-                    { hi: "Gemini से 3 अलग-अलग तरीकों से एक ही सवाल पूछकर देखें।", en: "Ask the same question to Gemini in 3 different ways." },
-                    { hi: "AI को अच्छा प्रॉम्प्ट लिखकर कक्षा 9 के किसी टॉपिक पर नोट्स बनवाएं।", en: "Write a good prompt to generate Class 9 notes on a topic." },
-                    { hi: "AI से अपनी पसंद के विषय पर 5 सवाल पूछें।", en: "Ask 5 questions to AI on your favorite topic." }
+                tasksPool: [
+                    [{hi:"3 अलग तरीकों से एक सवाल पूछें AI से।",en:"Ask same question 3 ways to AI."},{hi:"कक्षा 9 के टॉपिक पर AI से नोट्स बनवाएं।",en:"Get AI notes on a topic."},{hi:"AI से 5 सवाल पूछें।",en:"Ask AI 5 questions."}],
+                    [{hi:"अच्छा vs बुरा प्रॉम्प्ट लिखकर दिखाएं।",en:"Show good vs bad prompt."},{hi:"AI से कविता लिखवाएं।",en:"Get poem from AI."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"AI से कहानी लिखवाएं किसी विषय पर।",en:"Get story from AI."},{hi:"AI से 5 प्रश्न बनवाएं और खुद solve करें।",en:"AI makes quiz, solve it."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"AI से code लिखवाएं (Python calculator)।",en:"Get Python code from AI."},{hi:"AI से grammar check करवाएं।",en:"Get grammar check from AI."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"AI से योजना बनवाएं - 1 हफ्ते की पढ़ाई।",en:"AI makes 1-week study plan."},{hi:"AI से translate करवाएं 3 वाक्य।",en:"Get 3 sentences translated."},{hi:"₹35 बचाएं।",en:"Save ₹35."}],
+                    [{hi:"AI से 5 essay topics पूछें।",en:"Ask AI 5 essay topics."},{hi:"AI से प्रोजेक्ट आइडिया लें।",en:"Get project ideas from AI."},{hi:"₹15 बचाएं।",en:"Save ₹15."}],
+                    [{hi:"सप्ताह में AI से क्या-क्या सीखा लिखें।",en:"Write what learned from AI."},{hi:"AI का सबसे अच्छा prompt बनाएं।",en:"Create best AI prompt."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"प्रॉम्प्ट इंजीनियरिंग क्या है?", en:"What is Prompt Engineering?"},
-                      options: [{hi:"कंप्यूटर रिपेयर करना", en:"Computer repair"}, {hi:"AI को सही निर्देश देने की कला", en:"Art of giving right instructions to AI"}, {hi:"वायरस बनाना", en:"Making viruses"}],
-                      correct: 1,
-                      exp: {hi:"सही, स्पष्ट प्रॉम्प्ट से AI से बेहतरीन जवाब मिलते हैं।", en:"Clear prompts get the best answers from AI."} }
+                quizPool: [
+                    [{q:{hi:"प्रॉम्प्ट इंजीनियरिंग क्या है?",en:"Prompt Engineering is?"},
+                      options:[{hi:"कंप्यूटर रिपेयर",en:"Computer repair"},{hi:"AI को सही निर्देश",en:"Right instructions to AI"},{hi:"वायरस बनाना",en:"Making virus"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"AI को सही निर्देश।",en:"Right instructions to AI."}},
+                     {q:{hi:"अच्छे प्रॉम्प्ट का पहला नियम?",en:"First rule of good prompt?"},
+                      options:[{hi:"अस्पष्ट रहें",en:"Be vague"},{hi:"स्पष्ट रहें",en:"Be clear"},{hi:"छोटा लिखें",en:"Write short"},{hi:"कोई नहीं",en:"None"}],correct:1,exp:{hi:"स्पष्ट रहें।",en:"Be clear."}},
+                     {q:{hi:"Gemini किस कंपनी का?",en:"Gemini belongs to?"},
+                      options:[{hi:"Apple",en:"Apple"},{hi:"Google",en:"Google"},{hi:"Microsoft",en:"Microsoft"},{hi:"Amazon",en:"Amazon"}],correct:1,exp:{hi:"Google का।",en:"Google."}},
+                     {q:{hi:"ChatGPT किस कंपनी का?",en:"ChatGPT belongs to?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"OpenAI",en:"OpenAI"},{hi:"Apple",en:"Apple"},{hi:"Amazon",en:"Amazon"}],correct:1,exp:{hi:"OpenAI का।",en:"OpenAI."}},
+                     {q:{hi:"अच्छे प्रॉम्प्ट में क्या होना चाहिए?",en:"Good prompt includes?"},
+                      options:[{hi:"सिर्फ सवाल",en:"Only question"},{hi:"संदर्भ और फॉर्मेट",en:"Context & format"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"सिर्फ नाम",en:"Only name"}],correct:1,exp:{hi:"संदर्भ और फॉर्मेट।",en:"Context & format."}}],
+                    [{q:{hi:"Claude किस कंपनी का AI है?",en:"Claude belongs to?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"Anthropic",en:"Anthropic"},{hi:"Microsoft",en:"Microsoft"},{hi:"Meta",en:"Meta"}],correct:1,exp:{hi:"Anthropic का।",en:"Anthropic."}},
+                     {q:{hi:"AI से नोट्स कैसे बनवाएं?",en:"How to get AI notes?"},
+                      options:[{hi:"सिर्फ 'नोट्स' बोलें",en:"Just say 'notes'"},{hi:"'X टॉपिक पर 10 points दो'",en:"'10 points on X topic'"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"खुद लिखें",en:"Write yourself"}],correct:1,exp:{hi:"स्पष्ट प्रॉम्प्ट दें।",en:"Give clear prompt."}},
+                     {q:{hi:"AI से क्या नहीं पूछना चाहिए?",en:"What not to ask AI?"},
+                      options:[{hi:"पढ़ाई",en:"Study"},{hi:"निजी जानकारी",en:"Personal info"},{hi:"गणित",en:"Math"},{hi:"विज्ञान",en:"Science"}],correct:1,exp:{hi:"निजी जानकारी नहीं।",en:"Not personal info."}},
+                     {q:{hi:"AI हमेशा सही होता है?",en:"Is AI always right?"},
+                      options:[{hi:"हाँ",en:"Yes"},{hi:"नहीं, गलत भी हो सकता",en:"No, can be wrong"},{hi:"हमेशा गलत",en:"Always wrong"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"गलत भी हो सकता है।",en:"Can be wrong."}},
+                     {q:{hi:"AI के साथ अच्छा prompt कैसे बनाएं?",en:"How to create good prompt?"},
+                      options:[{hi:"सिर्फ 1 शब्द",en:"1 word"},{hi:"विस्तार + संदर्भ + फॉर्मेट",en:"Detail + context + format"},{hi:"कोई prompt नहीं",en:"No prompt"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"विस्तार+संदर्भ+फॉर्मेट।",en:"Detail+context+format."}}],
+                    [{q:{hi:"Copilot किस कंपनी का?",en:"Copilot belongs to?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"Microsoft",en:"Microsoft"},{hi:"Apple",en:"Apple"},{hi:"Amazon",en:"Amazon"}],correct:1,exp:{hi:"Microsoft का।",en:"Microsoft."}},
+                     {q:{hi:"AI से quiz कैसे बनवाएं?",en:"How to get AI quiz?"},
+                      options:[{hi:"'X टॉपिक पर 5 प्रश्न'",en:"'5 questions on X'"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"खुद बनाएं",en:"Make yourself"},{hi:"पता नहीं",en:"Don't know"}],correct:0,exp:{hi:"'5 प्रश्न' बोलें।",en:"Say '5 questions'."}},
+                     {q:{hi:"AI से code सीखना?",en:"Learn coding with AI?"},
+                      options:[{hi:"मुश्किल",en:"Hard"},{hi:"आसान - step-by-step",en:"Easy - step-by-step"},{hi:"असंभव",en:"Impossible"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"आसान step-by-step।",en:"Easy step-by-step."}},
+                     {q:{hi:"AI कौन सी भाषाएँ जानता?",en:"AI knows which languages?"},
+                      options:[{hi:"सिर्फ अंग्रेजी",en:"Only English"},{hi:"सिर्फ हिंदी",en:"Only Hindi"},{hi:"कई भाषाएँ",en:"Many languages"},{hi:"कोई नहीं",en:"None"}],correct:2,exp:{hi:"कई भाषाएँ।",en:"Many languages."}},
+                     {q:{hi:"AI से पढ़ाई में सबसे बड़ा फायदा?",en:"Biggest AI benefit in study?"},
+                      options:[{hi:"होमवर्क करना",en:"Doing homework"},{hi:"समझ में मदद",en:"Understanding help"},{hi:"दिखाना",en:"Show-off"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"समझ में मदद।",en:"Understanding help."}}],
+                    [{q:{hi:"AI से कहानी कैसे लिखवाएं?",en:"How to get AI story?"},
+                      options:[{hi:"'कहानी लिखो' बोलें",en:"Say 'write story'"},{hi:"खुद लिखें",en:"Write yourself"},{hi:"मम्मी से कहें",en:"Ask mom"},{hi:"नहीं होगा",en:"Not possible"}],correct:0,exp:{hi:"'कहानी लिखो'।",en:"'Write story'."}},
+                     {q:{hi:"AI से translate कैसे करें?",en:"How to translate with AI?"},
+                      options:[{hi:"'translate X to Y'",en:"'translate X to Y'"},{hi:"मना है",en:"Not allowed"},{hi:"पता नहीं",en:"Don't know"},{hi:"कोई तरीका नहीं",en:"No way"}],correct:0,exp:{hi:"'translate X to Y'",en:"'translate X to Y'"}},
+                     {q:{hi:"AI के 4 बड़े टूल?",en:"4 big AI tools?"},
+                      options:[{hi:"ChatGPT, Gemini, Claude, Copilot",en:"ChatGPT, Gemini, Claude, Copilot"},{hi:"फेसबुक, ट्विटर",en:"Facebook, Twitter"},{hi:"वर्ड, एक्सेल",en:"Word, Excel"},{hi:"कुछ नहीं",en:"None"}],correct:0,exp:{hi:"ChatGPT, Gemini, Claude, Copilot।",en:"ChatGPT, Gemini, Claude, Copilot."}},
+                     {q:{hi:"Prompt Engineer की सैलरी?",en:"Prompt Engineer salary?"},
+                      options:[{hi:"₹10k",en:"₹10k"},{hi:"₹6-20 लाख/साल",en:"₹6-20 lakh/year"},{hi:"₹1000",en:"₹1000"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"₹6-20 लाख/साल।",en:"₹6-20 lakh/year."}},
+                     {q:{hi:"AI से सीखने का सबसे अच्छा तरीका?",en:"Best way to learn with AI?"},
+                      options:[{hi:"सिर्फ copy",en:"Only copy"},{hi:"सवाल पूछें, समझें, verify करें",en:"Ask, understand, verify"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"पूछें, समझें, verify करें।",en:"Ask, understand, verify."}}],
+                    [{q:{hi:"AI से essay लिखवाना सही है?",en:"Getting AI to write essay - right?"},
+                      options:[{hi:"पूरा copy करें",en:"Copy fully"},{hi:"विचार लें, खुद लिखें",en:"Get ideas, write yourself"},{hi:"बिल्कुल नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"विचार लें, खुद लिखें।",en:"Get ideas, write yourself."}},
+                     {q:{hi:"AI क्या है?",en:"AI is?"},
+                      options:[{hi:"जादू",en:"Magic"},{hi:"मशीन बुद्धि",en:"Machine intelligence"},{hi:"खेल",en:"Game"},{hi:"गाना",en:"Song"}],correct:1,exp:{hi:"मशीन बुद्धि।",en:"Machine intelligence."}},
+                     {q:{hi:"AI से पढ़ाई के फायदे?",en:"AI study benefits?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"तेज़, आसान, step-by-step",en:"Fast, easy, step-by-step"},{hi:"नुकसान",en:"Harm"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"तेज़, आसान।",en:"Fast, easy."}},
+                     {q:{hi:"Prompt में क्या जोड़ें?",en:"What to add in prompt?"},
+                      options:[{hi:"कुछ नहीं",en:"Nothing"},{hi:"काम, किसके लिए, फॉर्मेट",en:"Task, audience, format"},{hi:"सिर्फ नाम",en:"Only name"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"काम, किसके लिए, फॉर्मेट।",en:"Task, audience, format."}},
+                     {q:{hi:"AI का सही उपयोग?",en:"Right use of AI?"},
+                      options:[{hi:"चीटिंग",en:"Cheating"},{hi:"सीखना, समझना",en:"Learning, understanding"},{hi:"बहाना",en:"Excuse"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"सीखना, समझना।",en:"Learning, understanding."}}]
                 ]
             },
+
             10: {
                 title: { hi: "कक्षा 10: फ्रीलांसिंग और ऑनलाइन कमाई", en: "Class 10: Freelancing & Online Earning" },
                 lessons: [
-                    { title: {hi:"फ्रीलांसिंग क्या है?", en:"What is Freelancing?"},
-                      desc: {hi:"घर बैठे अपनी स्किल से कमाई करें।", en:"Earn from home using your skills."},
-                      youtube: "https://www.youtube.com/results?search_query=freelancing+for+beginners+hindi",
-                      read: {hi:"फ्रीलांसिंग = अपनी स्किल्स से स्वतंत्र रूप से काम करके पैसे कमाना।\n\n🎯 फ्रीलांसिंग की खास बातें:\n• कोई बॉस नहीं\n• अपने समय पर काम\n• दुनिया भर के क्लाइंट्स\n• घर से काम\n\n💼 लोकप्रिय फ्रीलांस स्किल्स:\n• Content Writing (सामग्री लेखन)\n• Graphic Design (Canva, Photoshop)\n• Web Development (HTML, CSS, JS)\n• Video Editing\n• Digital Marketing\n• Translation (हिंदी-अंग्रेजी)\n• Data Entry\n• Programming (Python, Java)\n\n🌐 फ्रीलांसिंग प्लेटफॉर्म:\n• Fiverr - beginners के लिए best\n• Upwork - professional projects\n• Freelancer.com\n• Truelancer\n• Internshala (Internships)\n\n💰 कमाई: शुरुआत में ₹500-2000/project, अनुभव बढ़ने पर ₹50,000+/month\n\n📝 पहला स्टेप: कोई एक स्किल सीखें (3-6 महीने) → Portfolio बनाएं → Fiverr पर gig बनाएं\n\n⚠️ सावधान: कोई 'फ्री में पैसे कमाओ' वाला स्कैम नहीं - मेहनत जरूरी है!",
-                            en:"Freelancing = earning money by working independently with your skills.\n\n🎯 Key features:\n• No boss\n• Your own time\n• Clients worldwide\n• Work from home\n\n💼 Popular freelance skills:\n• Content Writing\n• Graphic Design (Canva, Photoshop)\n• Web Development\n• Video Editing\n• Digital Marketing\n• Translation\n• Data Entry\n• Programming\n\n🌐 Platforms:\n• Fiverr - best for beginners\n• Upwork\n• Freelancer.com\n• Truelancer\n• Internshala\n\n💰 Earning: ₹500-2000/project initially, ₹50,000+/month with experience\n\n📝 First step: Learn one skill (3-6 months) → Build portfolio → Create Fiverr gig\n\n⚠️ Beware: No 'get rich quick' scams - hard work needed!"} },
-                    { title: {hi:"Graphic Design सीखें", en:"Learn Graphic Design"},
-                      desc: {hi:"Canva से डिज़ाइन सीखें - मोबाइल पर ही!", en:"Learn design with Canva - on mobile!"},
-                      youtube: "https://www.youtube.com/results?search_query=canva+graphic+design+tutorial+hindi",
-                      read: {hi:"Canva = Free ऑनलाइन डिज़ाइन टूल (मोबाइल ऐप भी है)।\n\n🎨 Canva में क्या बना सकते हैं:\n• पोस्टर, बैनर\n• Instagram पोस्ट\n• YouTube thumbnail\n• प्रेजेंटेशन\n• विज़िटिंग कार्ड, लोगो\n• रिज्यूमे\n\n💰 फ्रीलांस कमाई:\n• Logo: ₹300-2000\n• YouTube Thumbnail: ₹100-500\n• Social Media Post: ₹200-1000\n• Complete Branding: ₹5000-20,000\n\n📱 शुरुआत: Canva ऐप डाउनलोड करें → Free templates से अभ्यास करें → अपना portfolio बनाएं → Fiverr/Instagram पर client खोजें",
-                            en:"Canva = Free online design tool (mobile app too).\n\n🎨 What you can create:\n• Posters, banners\n• Instagram posts\n• YouTube thumbnails\n• Presentations\n• Visiting cards, logos\n• Resumes\n\n💰 Freelance earning:\n• Logo: ₹300-2000\n• Thumbnail: ₹100-500\n• Social media post: ₹200-1000\n• Complete branding: ₹5000-20,000\n\n📱 Start: Download Canva → Practice with templates → Build portfolio → Find clients on Fiverr/Instagram"} }
+                    { title:{hi:"फ्रीलांसिंग", en:"Freelancing"},
+                      desc:{hi:"घर से स्किल से कमाई।", en:"Earn from home with skills."},
+                      youtube:"https://www.youtube.com/results?search_query=freelancing+for+beginners+hindi",
+                      read:{hi:"फ्रीलांसिंग = स्वतंत्र रूप से अपनी स्किल से काम करके पैसे कमाना।\n\nस्किल्स: Content Writing, Graphic Design, Web Development, Video Editing, Translation, Programming\n\nप्लेटफॉर्म: Fiverr, Upwork, Freelancer\n\nकमाई: ₹500-2000/project शुरू में",
+                            en:"Freelancing = independent work with your skills.\n\nSkills: Content Writing, Graphic Design, Web Dev, Video Editing, Translation, Programming\n\nPlatforms: Fiverr, Upwork, Freelancer\n\nEarning: ₹500-2000/project initially"} },
+                    { title:{hi:"Graphic Design (Canva)", en:"Graphic Design (Canva)"},
+                      desc:{hi:"Canva से डिज़ाइन।", en:"Design with Canva."},
+                      youtube:"https://www.youtube.com/results?search_query=canva+graphic+design+tutorial+hindi",
+                      read:{hi:"Canva = Free ऑनलाइन डिज़ाइन टूल (मोबाइल भी)।\n\nबना सकते हैं: Poster, Instagram post, YouTube thumbnail, Logo, Presentation।\n\nकमाई: Logo ₹300-2000, Thumbnail ₹100-500",
+                            en:"Canva = Free online design tool (mobile too).\n\nCreate: Poster, Instagram, Thumbnail, Logo, Presentation.\n\nEarn: Logo ₹300-2000, Thumbnail ₹100-500"} }
                 ],
-                tasks: [
-                    { hi: "Fiverr ऐप डाउनलोड करें और 3 gigs देखें।", en: "Download Fiverr app and view 3 gigs." },
-                    { hi: "Canva में एक पोस्टर बनाएं।", en: "Create a poster in Canva." },
-                    { hi: "अपनी 3 स्किल्स की सूची बनाएं जो सीख सकते हैं।", en: "List 3 skills you can learn." }
+                tasksPool: [
+                    [{hi:"Fiverr ऐप डाउनलोड करें, 3 gigs देखें।",en:"Download Fiverr, see 3 gigs."},{hi:"Canva में poster बनाएं।",en:"Make poster in Canva."},{hi:"3 skills की सूची बनाएं।",en:"List 3 skills."}],
+                    [{hi:"Upwork पर 2 profiles देखें।",en:"See 2 Upwork profiles."},{hi:"Canva में Instagram post।",en:"Instagram post in Canva."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"अपनी कोई skill बताएं जो कमाई में बदल सके।",en:"Tell skill that can earn."},{hi:"Canva में YouTube thumbnail।",en:"YouTube thumbnail in Canva."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"3 freelancing platforms के नाम।",en:"3 freelancing platforms."},{hi:"Canva में logo बनाएं।",en:"Make logo in Canva."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"पोर्टफोलियो क्या है?",en:"What is portfolio?"},{hi:"Canva में presentation बनाएं।",en:"Make presentation in Canva."},{hi:"₹35 बचाएं।",en:"Save ₹35."}],
+                    [{hi:"ग्राहक कैसे खोजें - 3 तरीके।",en:"3 ways to find clients."},{hi:"अपना Canva portfolio बनाएं।",en:"Make your Canva portfolio."},{hi:"₹15 बचाएं।",en:"Save ₹15."}],
+                    [{hi:"सप्ताह में सीखे 5 freelancing टिप्स।",en:"5 freelancing tips learned."},{hi:"अपना पहला gig design बनाएं।",en:"Design your first gig."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"फ्रीलांसिंग में काम कैसे मिलता है?", en:"How does one get work in freelancing?"},
-                      options: [{hi:"नौकरी अप्लाई करके", en:"By job application"}, {hi:"अपनी स्किल दिखाकर क्लाइंट से", en:"By showing skills to clients"}, {hi:"दोस्तों से माँगकर", en:"By asking friends"}],
-                      correct: 1,
-                      exp: {hi:"फ्रीलांसर अपनी स्किल और पोर्टफोलियो से क्लाइंट को आकर्षित करते हैं।", en:"Freelancers attract clients through skills and portfolio."} }
+                quizPool: [
+                    [{q:{hi:"फ्रीलांसिंग क्या है?",en:"Freelancing is?"},
+                      options:[{hi:"नौकरी",en:"Job"},{hi:"स्वतंत्र काम",en:"Independent work"},{hi:"गेम",en:"Game"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"स्वतंत्र काम।",en:"Independent work."}},
+                     {q:{hi:"Fiverr क्या है?",en:"Fiverr is?"},
+                      options:[{hi:"फ्रीलांसिंग प्लेटफॉर्म",en:"Freelancing platform"},{hi:"बैंक",en:"Bank"},{hi:"गेम",en:"Game"},{hi:"स्कूल",en:"School"}],correct:0,exp:{hi:"फ्रीलांसिंग प्लेटफॉर्म।",en:"Freelancing platform."}},
+                     {q:{hi:"Canva क्या है?",en:"Canva is?"},
+                      options:[{hi:"डिज़ाइन टूल",en:"Design tool"},{hi:"गेम",en:"Game"},{hi:"बैंक",en:"Bank"},{hi:"मोबाइल",en:"Mobile"}],correct:0,exp:{hi:"डिज़ाइन टूल।",en:"Design tool."}},
+                     {q:{hi:"फ्रीलांस कमाई शुरू में?",en:"Freelance earning initially?"},
+                      options:[{hi:"₹500-2000/project",en:"₹500-2000/project"},{hi:"₹1 लाख",en:"₹1 lakh"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"₹10",en:"₹10"}],correct:0,exp:{hi:"₹500-2000/project।",en:"₹500-2000/project."}},
+                     {q:{hi:"पोर्टफोलियो क्या है?",en:"Portfolio is?"},
+                      options:[{hi:"बैंक खाता",en:"Bank account"},{hi:"काम का नमूना",en:"Work samples"},{hi:"गेम",en:"Game"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"काम का नमूना।",en:"Work samples."}}],
+                    [{q:{hi:"Upwork क्या है?",en:"Upwork is?"},
+                      options:[{hi:"फ्रीलांसिंग प्लेटफॉर्म",en:"Freelancing platform"},{hi:"सोशल मीडिया",en:"Social media"},{hi:"गेम",en:"Game"},{hi:"बैंक",en:"Bank"}],correct:0,exp:{hi:"फ्रीलांसिंग प्लेटफॉर्म।",en:"Freelancing platform."}},
+                     {q:{hi:"Content Writing क्या है?",en:"Content Writing is?"},
+                      options:[{hi:"गाना",en:"Singing"},{hi:"लेख लिखना",en:"Writing articles"},{hi:"फोटो",en:"Photo"},{hi:"गेम",en:"Game"}],correct:1,exp:{hi:"लेख लिखना।",en:"Writing articles."}},
+                     {q:{hi:"Logo design की कीमत?",en:"Logo design price?"},
+                      options:[{hi:"₹10",en:"₹10"},{hi:"₹300-2000",en:"₹300-2000"},{hi:"₹1 लाख",en:"₹1 lakh"},{hi:"फ्री",en:"Free"}],correct:1,exp:{hi:"₹300-2000।",en:"₹300-2000."}},
+                     {q:{hi:"फ्रीलांसिंग में सबसे जरूरी?",en:"Most important in freelancing?"},
+                      options:[{hi:"स्किल",en:"Skill"},{hi:"दोस्त",en:"Friend"},{hi:"पैसा",en:"Money"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"स्किल।",en:"Skill."}},
+                     {q:{hi:"ग्राहक कहाँ मिलते हैं?",en:"Where clients found?"},
+                      options:[{hi:"किताब",en:"Book"},{hi:"ऑनलाइन प्लेटफॉर्म",en:"Online platforms"},{hi:"सड़क",en:"Road"},{hi:"जंगल",en:"Forest"}],correct:1,exp:{hi:"ऑनलाइन प्लेटफॉर्म।",en:"Online platforms."}}],
+                    [{q:{hi:"Video Editing क्या है?",en:"Video editing is?"},
+                      options:[{hi:"वीडियो बनाना",en:"Making videos"},{hi:"गाना",en:"Singing"},{hi:"फोटो",en:"Photo"},{hi:"गेम",en:"Game"}],correct:0,exp:{hi:"वीडियो बनाना/एडिट करना।",en:"Making/editing videos."}},
+                     {q:{hi:"फ्रीलांसिंग के फायदे?",en:"Freelance benefits?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"घर से काम, अपना समय",en:"Work from home, own time"},{hi:"बॉस",en:"Boss"},{hi:"9-5",en:"9-5"}],correct:1,exp:{hi:"घर से काम, अपना समय।",en:"Work from home, own time."}},
+                     {q:{hi:"Translation क्या है?",en:"Translation is?"},
+                      options:[{hi:"अनुवाद",en:"Converting languages"},{hi:"गाना",en:"Singing"},{hi:"फोटो",en:"Photo"},{hi:"गेम",en:"Game"}],correct:0,exp:{hi:"अनुवाद।",en:"Converting languages."}},
+                     {q:{hi:"अच्छा portfolio कैसे बनाएं?",en:"Good portfolio?"},
+                      options:[{hi:"कुछ नहीं",en:"Nothing"},{hi:"5-10 अच्छे काम के नमूने",en:"5-10 good work samples"},{hi:"सिर्फ नाम",en:"Only name"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"5-10 अच्छे samples।",en:"5-10 good samples."}},
+                     {q:{hi:"फ्रीलांसिंग में सबसे ज्यादा मांग?",en:"Most in-demand freelance skill?"},
+                      options:[{hi:"खाना बनाना",en:"Cooking"},{hi:"कोडिंग/डिज़ाइन",en:"Coding/Design"},{hi:"गाना",en:"Singing"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"कोडिंग/डिज़ाइन।",en:"Coding/Design."}}],
+                    [{q:{hi:"पहला कदम फ्रीलांसिंग में?",en:"First step in freelancing?"},
+                      options:[{hi:"सीधे client",en:"Direct client"},{hi:"एक skill सीखें",en:"Learn one skill"},{hi:"पैसा",en:"Money"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"पहले skill सीखें।",en:"Learn one skill first."}},
+                     {q:{hi:"Canva में क्या बना सकते हैं?",en:"What can create in Canva?"},
+                      options:[{hi:"सिर्फ logo",en:"Only logo"},{hi:"बहुत कुछ - post, logo, thumbnail",en:"Many things"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"बहुत कुछ।",en:"Many things."}},
+                     {q:{hi:"Freelancer.com क्या है?",en:"Freelancer.com is?"},
+                      options:[{hi:"प्लेटफॉर्म",en:"Platform"},{hi:"सोशल मीडिया",en:"Social media"},{hi:"बैंक",en:"Bank"},{hi:"गेम",en:"Game"}],correct:0,exp:{hi:"फ्रीलांस प्लेटफॉर्म।",en:"Freelance platform."}},
+                     {q:{hi:"स्किल कैसे सीखें?",en:"How to learn skill?"},
+                      options:[{hi:"किताब से सिर्फ",en:"Only book"},{hi:"YouTube, courses, अभ्यास",en:"YouTube, courses, practice"},{hi:"सपने से",en:"Dream"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"YouTube, courses, अभ्यास।",en:"YouTube, courses, practice."}},
+                     {q:{hi:"फ्रीलांसिंग में कितना समय लगता है skill सीखने में?",en:"Time to learn skill?"},
+                      options:[{hi:"1 दिन",en:"1 day"},{hi:"3-6 महीने",en:"3-6 months"},{hi:"10 साल",en:"10 years"},{hi:"कभी नहीं",en:"Never"}],correct:1,exp:{hi:"3-6 महीने।",en:"3-6 months."}}],
+                    [{q:{hi:"Client को कैसे प्रभावित करें?",en:"How to impress client?"},
+                      options:[{hi:"अच्छा काम, समय पर delivery",en:"Good work, on-time delivery"},{hi:"नकली",en:"Fake"},{hi:"झूठ",en:"Lies"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"अच्छा काम, समय पर delivery।",en:"Good work, on time."}},
+                     {q:{hi:"फ्रीलांसिंग का सबसे बड़ा फायदा?",en:"Biggest freelance benefit?"},
+                      options:[{hi:"घर से काम",en:"Work from home"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"नुकसान",en:"Harm"},{hi:"पता नहीं",en:"Don't know"}],correct:0,exp:{hi:"घर से काम।",en:"Work from home."}},
+                     {q:{hi:"Portfolio में क्या हो?",en:"Portfolio should have?"},
+                      options:[{hi:"कुछ नहीं",en:"Nothing"},{hi:"आपके काम के नमूने",en:"Your work samples"},{hi:"सिर्फ फोटो",en:"Only photo"},{hi:"सिर्फ नाम",en:"Only name"}],correct:1,exp:{hi:"काम के नमूने।",en:"Work samples."}},
+                     {q:{hi:"Fiverr पर पहला gig कैसे बनाएं?",en:"How to make first Fiverr gig?"},
+                      options:[{hi:"कुछ नहीं",en:"Nothing"},{hi:"अपनी स्किल बताएं, price डालें, samples दें",en:"Show skill, price, samples"},{hi:"सिर्फ नाम",en:"Only name"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"स्किल+price+samples।",en:"Skill+price+samples."}},
+                     {q:{hi:"फ्रीलांसिंग में मेहनत जरूरी है?",en:"Hard work needed in freelancing?"},
+                      options:[{hi:"नहीं",en:"No"},{hi:"हाँ, बहुत",en:"Yes, much"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"हाँ, बहुत मेहनत।",en:"Yes, much."}}],
+                    [{q:{hi:"फ्रीलांसिंग में सबसे बड़ी चुनौती?",en:"Biggest freelance challenge?"},
+                      options:[{hi:"कुछ नहीं",en:"Nothing"},{hi:"Client ढूंढना शुरू में",en:"Finding clients initially"},{hi:"गाना",en:"Singing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"शुरू में client ढूंढना।",en:"Finding clients initially."}},
+                     {q:{hi:"₹5000 के project पर 10% commission, कितना मिलेगा?",en:"₹5000 project, 10% commission - earning?"},
+                      options:[{hi:"₹5000",en:"₹5000"},{hi:"₹4500",en:"₹4500"},{hi:"₹4000",en:"₹4000"},{hi:"₹5500",en:"₹5500"}],correct:1,exp:{hi:"5000-500=4500",en:"5000-500=4500"}},
+                     {q:{hi:"फ्रीलांसिंग में payment कैसे मिलती?",en:"How freelance payment comes?"},
+                      options:[{hi:"कैश",en:"Cash"},{hi:"ऑनलाइन transfer",en:"Online transfer"},{hi:"चेक",en:"Cheque"},{hi:"कोई नहीं",en:"None"}],correct:1,exp:{hi:"ऑनलाइन transfer।",en:"Online transfer."}},
+                     {q:{hi:"सबसे लोकप्रिय फ्रीलांस स्किल?",en:"Most popular freelance skill?"},
+                      options:[{hi:"कुकिंग",en:"Cooking"},{hi:"कोडिंग/डिज़ाइन",en:"Coding/Design"},{hi:"गाना",en:"Singing"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"कोडिंग/डिज़ाइन।",en:"Coding/Design."}},
+                     {q:{hi:"फ्रीलांसिंग भविष्य में कैसी है?",en:"Freelancing future?"},
+                      options:[{hi:"खत्म",en:"End"},{hi:"उज्ज्वल",en:"Bright"},{hi:"वही",en:"Same"},{hi:"बुरी",en:"Bad"}],correct:1,exp:{hi:"उज्ज्वल।",en:"Bright."}}]
                 ]
             },
+
             11: {
                 title: { hi: "कक्षा 11: एसेट बनाम लायबिलिटी", en: "Class 11: Assets vs Liabilities" },
                 lessons: [
-                    { title: {hi:"एसेट (Asset) क्या है?", en:"What is an Asset?"},
-                      desc: {hi:"अमीर लोग एसेट खरीदते हैं - जानिए क्यों।", en:"Rich people buy assets - know why."},
-                      youtube: "https://www.youtube.com/results?search_query=assets+vs+liabilities+rich+dad+poor+dad+hindi",
-                      read: {hi:"रॉबर्ट कियोसाकी की किताब 'Rich Dad Poor Dad' का मुख्य विचार:\n\n💰 एसेट (Asset): जो आपकी जेब में पैसा डाले (कमाई करे)\nउदाहरण:\n• किराए पर दिया मकान\n• शेयर/म्यूचुअल फंड\n• FD/RD\n• ऑनलाइन कोर्स/बिज़नेस\n• लाइसेंस/किताबों की रॉयल्टी\n\n💸 लायबिलिटी (Liability): जो जेब से पैसा निकाले\nउदाहरण:\n• EMI वाली कार (जो कमाई नहीं करती)\n• क्रेडिट कार्ड का बकाया\n• महंगे गैजेट्स जो बेकार पड़े हैं\n\n🌟 अमीर बनने का नियम:\nएसेट खरीदो → उससे आय बढ़ाओ → और एसेट खरीदो\n\n📊 उदाहरण:\nराहुल ने ₹5 लाख की बाइक (liability) खरीदी - EMI ₹5000/month\nप्रिया ने ₹5 लाख का शेयर (asset) खरीदा - Dividend ₹20,000/year\n5 साल बाद: राहुल का पैसा बर्बाद, प्रिया का double!",
-                            en:"Key idea from Robert Kiyosaki's 'Rich Dad Poor Dad':\n\n💰 Asset: Puts money IN your pocket\nExamples:\n• Rented house\n• Shares/Mutual Funds\n• FD/RD\n• Online course/business\n• Book royalties\n\n💸 Liability: Takes money OUT of your pocket\nExamples:\n• Car with EMI (non-income)\n• Credit card debt\n• Expensive unused gadgets\n\n🌟 Rule to get rich:\nBuy assets → Increase income → Buy more assets\n\n📊 Example:\nRahul bought ₹5L bike (liability) - EMI ₹5000/month\nPriya bought ₹5L shares (asset) - Dividend ₹20,000/year\nAfter 5 years: Rahul lost money, Priya doubled!"} },
-                    { title: {hi:"Python से छोटा प्रोजेक्ट", en:"Python Mini Project"},
-                      desc: {hi:"Calculator या To-Do बनाएं।", en:"Build calculator or To-Do."},
-                      youtube: "https://www.youtube.com/results?search_query=python+mini+project+hindi",
-                      read: {hi:"Python से बना सकते हैं:\n\n🧮 Simple Calculator:\ndef add(a,b): return a+b\ndef sub(a,b): return a-b\ndef mul(a,b): return a*b\ndef div(a,b): return a/b if b!=0 else \"Cannot divide by 0\"\n\nprint(add(5,3))  # 8\nprint(mul(4,2))  # 8\n\n📝 To-Do List:\ntasks = []\ndef add_task(t):\n    tasks.append(t)\n    print(f\"Added: {t}\")\n\ndef show_tasks():\n    for i, t in enumerate(tasks, 1):\n        print(f\"{i}. {t}\")\n\nadd_task(\"पढ़ाई करना\")\nadd_task(\"Python सीखना\")\nshow_tasks()\n\n🎯 ये projects आप resume में लगा सकते हैं!",
-                            en:"Build with Python:\n\n🧮 Simple Calculator:\ndef add(a,b): return a+b\ndef sub(a,b): return a-b\n\n📝 To-Do List:\ntasks = []\ndef add_task(t):\n    tasks.append(t)\n\n🎯 Use these projects in your resume!"} }
+                    { title:{hi:"एसेट (Asset)", en:"Asset"},
+                      desc:{hi:"जो पैसे कमा कर दे।", en:"Generates income."},
+                      youtube:"https://www.youtube.com/results?search_query=assets+vs+liabilities+rich+dad+poor+dad+hindi",
+                      read:{hi:"रॉबर्ट कियोसाकी का विचार:\n\n💰 एसेट: जेब में पैसे डाले (किराया मकान, शेयर, FD, बिज़नेस)\n💸 लायबिलिटी: जेब से पैसे निकाले (EMI कार, क्रेडिट कार्ड बकाया)\n\nनियम: एसेट खरीदो → आय बढ़ाओ → और एसेट खरीदो।",
+                            en:"Robert Kiyosaki's idea:\n\n💰 Asset: Puts money IN (rented house, shares, FD, business)\n💸 Liability: Takes money OUT (car EMI, credit card debt)\n\nRule: Buy assets → Increase income → Buy more assets."} },
+                    { title:{hi:"Python Mini Project", en:"Python Mini Project"},
+                      desc:{hi:"Calculator बनाएं।", en:"Build calculator."},
+                      youtube:"https://www.youtube.com/results?search_query=python+mini+project+hindi",
+                      read:{hi:"Python Calculator:\ndef add(a,b): return a+b\ndef sub(a,b): return a-b\ndef mul(a,b): return a*b\n\nprint(add(5,3))  # 8\nprint(mul(4,2))  # 8",
+                            en:"Python Calculator:\ndef add(a,b): return a+b\ndef sub(a,b): return a-b\ndef mul(a,b): return a*b\n\nprint(add(5,3))  # 8\nprint(mul(4,2))  # 8"} }
                 ],
-                tasks: [
-                    { hi: "अपने घर के 5 एसेट और 5 लायबिलिटी की सूची बनाएं।", en: "List 5 assets and 5 liabilities from your home." },
-                    { hi: "Python में कोई छोटा calculator बनाएं।", en: "Build a small calculator in Python." },
-                    { hi: "'Rich Dad Poor Dad' की किताब के 3 quotes पढ़ें।", en: "Read 3 quotes from 'Rich Dad Poor Dad'." }
+                tasksPool: [
+                    [{hi:"5 एसेट, 5 लायबिलिटी सूची।",en:"5 assets, 5 liabilities list."},{hi:"Python में calculator बनाएं।",en:"Build Python calculator."},{hi:"3 quotes पढ़ें Rich Dad Poor Dad के।",en:"Read 3 quotes from Rich Dad Poor Dad."}],
+                    [{hi:"अपने घर में एसेट खोजें।",en:"Find assets at home."},{hi:"Python calculator में div फंक्शन जोड़ें।",en:"Add div function."},{hi:"₹30 बचाएं।",en:"Save ₹30."}],
+                    [{hi:"एसेट vs लायबिलिटी में अंतर बताएं।",en:"Asset vs liability difference."},{hi:"Python से area निकालें।",en:"Calculate area in Python."},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"किराये का मकान - एसेट या लायबिलिटी?",en:"Rented house - asset or liability?"},{hi:"Python में to-do list बनाएं।",en:"Build To-Do in Python."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"EMI कार - एसेट या लायबिलिटी?",en:"EMI car - asset or liability?"},{hi:"Python में even/odd check।",en:"Even/odd in Python."},{hi:"₹35 बचाएं।",en:"Save ₹35."}],
+                    [{hi:"अमीर लोग क्या खरीदते हैं?",en:"What do rich buy?"},{hi:"Python में string reverse।",en:"Reverse string in Python."},{hi:"₹15 बचाएं।",en:"Save ₹15."}],
+                    [{hi:"सप्ताह में सीखे 5 finance terms।",en:"5 finance terms learned."},{hi:"अपना Python project पूरा करें।",en:"Complete your Python project."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"एसेट (Asset) क्या है?", en:"What is an Asset?"},
-                      options: [{hi:"जो जेब से पैसा निकाले", en:"Takes money from pocket"}, {hi:"जो जेब में पैसा डाले", en:"Puts money in pocket"}, {hi:"महंगी कार", en:"Expensive car"}],
-                      correct: 1,
-                      exp: {hi:"Asset वह है जो आपको पैसे कमा कर दे।", en:"An asset generates income for you."} }
+                quizPool: [
+                    [{q:{hi:"एसेट क्या है?",en:"Asset is?"},
+                      options:[{hi:"जेब से पैसा निकाले",en:"Takes money out"},{hi:"जेब में पैसा डाले",en:"Puts money in"},{hi:"महंगी कार",en:"Expensive car"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"पैसे डालता है।",en:"Puts money in."}},
+                     {q:{hi:"लायबिलिटी क्या है?",en:"Liability is?"},
+                      options:[{hi:"जेब में पैसा डाले",en:"Puts money in"},{hi:"जेब से पैसा निकाले",en:"Takes money out"},{hi:"बैंक",en:"Bank"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"पैसे निकालता है।",en:"Takes money out."}},
+                     {q:{hi:"किराये का मकान क्या है?",en:"Rented house is?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"बैंक",en:"Bank"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"एसेट (किराया देता है)।",en:"Asset (gives rent)."}},
+                     {q:{hi:"Python में फंक्शन?",en:"Python function?"},
+                      options:[{hi:"def name():",en:"def name():"},{hi:"function()",en:"function()"},{hi:"fn()",en:"fn()"},{hi:"fun()",en:"fun()"}],correct:0,exp:{hi:"def से।",en:"def keyword."}},
+                     {q:{hi:"अमीर बनने का नियम?",en:"Rule to get rich?"},
+                      options:[{hi:"लायबिलिटी खरीदो",en:"Buy liabilities"},{hi:"एसेट खरीदो",en:"Buy assets"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"एसेट खरीदो।",en:"Buy assets."}}],
+                    [{q:{hi:"शेयर क्या है?",en:"Share is?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"गेम",en:"Game"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"एसेट (डिविडेंड देता है)।",en:"Asset (gives dividend)."}},
+                     {q:{hi:"EMI कार क्या है?",en:"EMI car is?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"बैंक",en:"Bank"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"लायबिलिटी (EMI)।",en:"Liability (EMI)."}},
+                     {q:{hi:"Rich Dad Poor Dad के लेखक?",en:"Author of Rich Dad Poor Dad?"},
+                      options:[{hi:"रॉबर्ट कियोसाकी",en:"Robert Kiyosaki"},{hi:"वॉरेन बफे",en:"Warren Buffett"},{hi:"इलॉन मस्क",en:"Elon Musk"},{hi:"बिल गेट्स",en:"Bill Gates"}],correct:0,exp:{hi:"रॉबर्ट कियोसाकी।",en:"Robert Kiyosaki."}},
+                     {q:{hi:"Python में जोड़?",en:"Python addition?"},
+                      options:[{hi:"a+b",en:"a+b"},{hi:"a.b",en:"a.b"},{hi:"a&b",en:"a&b"},{hi:"add(a,b)",en:"add(a,b)"}],correct:0,exp:{hi:"a+b",en:"a+b"}},
+                     {q:{hi:"एसेट बनने की शर्त?",en:"Asset condition?"},
+                      options:[{hi:"पैसे खर्च करे",en:"Spends money"},{hi:"पैसे कमा कर दे",en:"Generates money"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"पैसे कमा कर दे।",en:"Generates money."}}],
+                    [{q:{hi:"FD क्या है?",en:"FD is?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"गेम",en:"Game"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"एसेट (ब्याज देता है)।",en:"Asset (gives interest)."}},
+                     {q:{hi:"क्रेडिट कार्ड बकाया?",en:"Credit card debt?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"बैंक",en:"Bank"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"लायबिलिटी।",en:"Liability."}},
+                     {q:{hi:"Python में string?",en:"Python string?"},
+                      options:[{hi:"'hello'",en:"'hello'"},{hi:"hello",en:"hello"},{hi:"(hello)",en:"(hello)"},{hi:"[hello]",en:"[hello]"}],correct:0,exp:{hi:"कोट्स में।",en:"In quotes."}},
+                     {q:{hi:"अमीर लोग क्या खरीदते?",en:"Rich buy?"},
+                      options:[{hi:"लायबिलिटी",en:"Liabilities"},{hi:"एसेट",en:"Assets"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"एसेट।",en:"Assets."}},
+                     {q:{hi:"म्यूचुअल फंड क्या है?",en:"Mutual fund is?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"गेम",en:"Game"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"एसेट।",en:"Asset."}}],
+                    [{q:{hi:"आपका मोबाइल एसेट है या लायबिलिटी?",en:"Your mobile - asset or liability?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"दोनों",en:"Both"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"आमतौर पर लायबिलिटी (पैसे निकलते हैं)।",en:"Usually liability (money goes out)."}},
+                     {q:{hi:"Python में print का काम?",en:"Python print does?"},
+                      options:[{hi:"इनपुट",en:"Input"},{hi:"आउटपुट दिखाए",en:"Show output"},{hi:"डिलीट",en:"Delete"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"आउटपुट दिखाता है।",en:"Shows output."}},
+                     {q:{hi:"एसेट खरीदने का सही समय?",en:"Right time to buy asset?"},
+                      options:[{hi:"कभी नहीं",en:"Never"},{hi:"जैसे ही पैसे हों",en:"As soon as money available"},{hi:"10 साल बाद",en:"After 10 years"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"जैसे ही पैसे हों।",en:"As soon as possible."}},
+                     {q:{hi:"सबसे अच्छा एसेट?",en:"Best asset?"},
+                      options:[{hi:"महंगी कार",en:"Expensive car"},{hi:"शेयर/म्यूचुअल फंड",en:"Shares/MF"},{hi:"मोबाइल",en:"Mobile"},{hi:"कपड़े",en:"Clothes"}],correct:1,exp:{hi:"शेयर/MF।",en:"Shares/MF."}},
+                     {q:{hi:"₹5000 शेयर पर 10% return, कितना फायदा?",en:"₹5000 share, 10% return - profit?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹500",en:"₹500"},{hi:"₹1000",en:"₹1000"},{hi:"₹5000",en:"₹5000"}],correct:1,exp:{hi:"5000×0.1=500",en:"5000×0.1=500"}}],
+                    [{q:{hi:"एसेट के 3 उदाहरण?",en:"3 examples of assets?"},
+                      options:[{hi:"कार, मोबाइल, TV",en:"Car, mobile, TV"},{hi:"शेयर, FD, किराया मकान",en:"Shares, FD, rental house"},{hi:"कपड़े, जूते",en:"Clothes, shoes"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"शेयर, FD, किराया मकान।",en:"Shares, FD, rental."}},
+                     {q:{hi:"Python में list कैसे बनाएं?",en:"Python list?"},
+                      options:[{hi:"[1,2,3]",en:"[1,2,3]"},{hi:"(1,2,3)",en:"(1,2,3)"},{hi:"{1,2,3}",en:"{1,2,3}"},{hi:"<1,2,3>",en:"<1,2,3>"}],correct:0,exp:{hi:"[1,2,3]",en:"[1,2,3]"}},
+                     {q:{hi:"किराये से आय क्या है?",en:"Rental income is?"},
+                      options:[{hi:"एसेट",en:"Asset"},{hi:"लायबिलिटी",en:"Liability"},{hi:"खर्च",en:"Expense"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"एसेट से आय।",en:"Income from asset."}},
+                     {q:{hi:"₹10000, 10% return - कितना फायदा?",en:"₹10000, 10% return - profit?"},
+                      options:[{hi:"₹100",en:"₹100"},{hi:"₹1000",en:"₹1000"},{hi:"₹500",en:"₹500"},{hi:"₹2000",en:"₹2000"}],correct:1,exp:{hi:"10000×0.1=1000",en:"10000×0.1=1000"}},
+                     {q:{hi:"क्या EMI कार खरीदना सही?",en:"Should we buy EMI car?"},
+                      options:[{hi:"सोच-समझकर",en:"After thinking"},{hi:"हमेशा",en:"Always"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:0,exp:{hi:"सोच-समझकर।",en:"After thinking."}}],
+                    [{q:{hi:"अमीर और गरीब में मुख्य अंतर?",en:"Main difference rich vs poor?"},
+                      options:[{hi:"खर्च",en:"Spending"},{hi:"एसेट vs लायबिलिटी खरीदना",en:"Buying assets vs liabilities"},{hi:"गाना",en:"Singing"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"एसेट vs लायबिलिटी।",en:"Assets vs liabilities."}},
+                     {q:{hi:"₹50000 के शेयर पर 10% return, कितना?",en:"₹50000 share, 10% return?"},
+                      options:[{hi:"₹500",en:"₹500"},{hi:"₹5000",en:"₹5000"},{hi:"₹50000",en:"₹50000"},{hi:"₹10000",en:"₹10000"}],correct:1,exp:{hi:"50000×0.1=5000",en:"50000×0.1=5000"}},
+                     {q:{hi:"Python में loop?",en:"Python loop?"},
+                      options:[{hi:"for i in range():",en:"for i in range():"},{hi:"for(i)",en:"for(i)"},{hi:"loop()",en:"loop()"},{hi:"repeat()",en:"repeat()"}],correct:0,exp:{hi:"for i in range():",en:"for i in range():"}},
+                     {q:{hi:"सबसे जरूरी पहला एसेट?",en:"First asset to buy?"},
+                      options:[{hi:"कार",en:"Car"},{hi:"म्यूचुअल फंड SIP",en:"Mutual fund SIP"},{hi:"मोबाइल",en:"Mobile"},{hi:"कपड़े",en:"Clothes"}],correct:1,exp:{hi:"म्यूचुअल फंड SIP।",en:"Mutual fund SIP."}},
+                     {q:{hi:"लायबिलिटी कम करने का तरीका?",en:"How to reduce liability?"},
+                      options:[{hi:"और लो",en:"Borrow more"},{hi:"जल्दी चुकाएं, नई न लें",en:"Pay early, avoid new"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"जल्दी चुकाएं।",en:"Pay early."}}]
                 ]
             },
+
             12: {
-                title: { hi: "कक्षा 12: फाइनेंशियल फ्रीडम और स्टार्टअप", en: "Class 12: Financial Freedom & Startup" },
+                title: { hi: "कक्षा 12: फाइनेंशियल फ्रीडम", en: "Class 12: Financial Freedom" },
                 lessons: [
-                    { title: {hi:"फाइनेंशियल फ्रीडम क्या है?", en:"What is Financial Freedom?"},
-                      desc: {hi:"वित्तीय स्वतंत्रता हासिल करने का रोडमैप।", en:"Roadmap to achieve financial freedom."},
-                      youtube: "https://www.youtube.com/results?search_query=financial+freedom+roadmap+hindi",
-                      read: {hi:"फाइनेंशियल फ्रीडम (वित्तीय स्वतंत्रता) = आपकी पैसिव इनकम (Passive Income) आपके खर्चों से ज्यादा हो जाए।\n\n💰 पैसिव इनकम = बिना active काम किए मिलने वाली आय:\n• शेयर/म्यूचुअल फंड से डिविडेंड\n• किराये से आय\n• FD का ब्याज\n• ऑनलाइन कोर्स/YouTube की कमाई\n• रॉयल्टी\n\n📊 फाइनेंशियल फ्रीडम का गणित:\nमान लो आपका महीने का खर्च = ₹40,000\nआपको ऐसी पैसिव इनकम चाहिए = ₹40,000/month\n\nकैसे? मान लो 8% return पर:\n₹40,000 × 12 ÷ 8% = ₹60,00,000 का निवेश चाहिए\n\n🛤️ रोडमैप (20 साल की उम्र से शुरू):\n\nAge 20: स्किल सीखें (कोडिंग/डिज़ाइन), पहली कमाई\nAge 22: ₹5,000/month निवेश शुरू (म्यूचुअल फंड SIP)\nAge 25: ₹50,000/month income का 30% निवेश\nAge 30: पहली प्रॉपर्टी खरीदें\nAge 35: ₹1 करोड़ क्लब\nAge 40: पूर्ण फाइनेंशियल फ्रीडम\n\n🌟 3 मूल नियम:\n1. Spend less than you earn (जितना कमाएं, कम खर्चें)\n2. Invest regularly (नियमित निवेश)\n3. Learn continuously (सीखते रहें)\n\n⚠️ जल्दबाज़ी न करें - यह मैराथन है, स्प्रिंट नहीं!",
-                            en:"Financial Freedom = Your Passive Income > Your Expenses\n\n💰 Passive Income = Money without active work:\n• Dividends from shares/MF\n• Rental income\n• FD interest\n• Online course/YouTube income\n• Royalties\n\n📊 Math:\nSay monthly expenses = ₹40,000\nYou need passive income = ₹40,000/month\n\nAt 8% return: ₹40,000 × 12 ÷ 8% = ₹60,00,000 investment needed\n\n🛤️ Roadmap (start at 20):\n\nAge 20: Learn skills, first earning\nAge 22: Start investing ₹5,000/month (MF SIP)\nAge 25: Invest 30% of ₹50,000 income\nAge 30: Buy first property\nAge 35: ₹1 Crore club\nAge 40: Complete financial freedom\n\n🌟 3 Golden Rules:\n1. Spend less than you earn\n2. Invest regularly\n3. Learn continuously\n\n⚠️ Don't rush - it's a marathon, not sprint!"} },
-                    { title: {hi:"स्टार्टअप और बिज़नेस आइडिया", en:"Startup & Business Ideas"}},
+                    { title:{hi:"फाइनेंशियल फ्रीडम", en:"Financial Freedom"},
+                      desc:{hi:"वित्तीय स्वतंत्रता का रोडमैप।", en:"Roadmap to financial freedom."},
+                      youtube:"https://www.youtube.com/results?search_query=financial+freedom+roadmap+hindi",
+                      read:{hi:"फाइनेंशियल फ्रीडम = पैसिव इनकम > खर्च।\n\nपैसिव इनकम: डिविडेंड, किराया, FD ब्याज, ऑनलाइन कोर्स, रॉयल्टी।\n\nगणित: ₹40,000/month खर्च के लिए 8% return पर ₹60 लाख निवेश चाहिए।\n\nरोडमैप:\n20: स्किल सीखें\n22: SIP शुरू\n25: 30% निवेश\n30: पहली प्रॉपर्टी\n35: ₹1 करोड़\n40: पूर्ण फ्रीडम\n\n3 नियम:\n1. कम खर्चें\n2. नियमित निवेश\n3. सीखते रहें",
+                            en:"Financial Freedom = Passive income > expenses.\n\nPassive: dividends, rent, FD, online courses, royalties.\n\nMath: For ₹40,000/month expense, need ₹60 lakh at 8% return.\n\nRoadmap:\n20: Learn skills\n22: Start SIP\n25: 30% invest\n30: First property\n35: ₹1 crore\n40: Full freedom\n\n3 rules:\n1. Spend less\n2. Invest regularly\n3. Keep learning"} }
                 ],
-                tasks: [
-                    { hi: "अपना 5-साल का फाइनेंशियल फ्रीडम प्लान लिखें।", en: "Write your 5-year financial freedom plan." },
-                    { hi: "एक स्टार्टअप आइडिया लिखें और उसके 3 फायदे बताएं।", en: "Write a startup idea and its 3 advantages." },
-                    { hi: "SIP कैलकुलेटर से 10 साल का रिटर्न देखें (groww/zerodha)।", en: "Check 10-year SIP return (groww/zerodha calculator)." }
+                tasksPool: [
+                    [{hi:"5 साल का फाइनेंशियल प्लान लिखें।",en:"Write 5-year financial plan."},{hi:"स्टार्टअप आइडिया लिखें + 3 फायदे।",en:"Startup idea + 3 advantages."},{hi:"SIP calculator से 10 साल रिटर्न देखें।",en:"Check 10-year SIP return."}],
+                    [{hi:"पैसिव इनकम के 3 तरीके बताएं।",en:"3 passive income ways."},{hi:"₹30 बचाएं।",en:"Save ₹30."},{hi:"SIP क्या है - बोलें।",en:"Say what is SIP."}],
+                    [{hi:"₹40,000/month खर्च के लिए कितना निवेश?",en:"Investment for ₹40,000/month expense?"},{hi:"अपनी पहली SIP प्लान करें।",en:"Plan first SIP."},{hi:"₹25 बचाएं।",en:"Save ₹25."}],
+                    [{hi:"10 साल में ₹1 करोड़ कैसे?",en:"₹1 crore in 10 years?"},{hi:"एक बिज़नेस आइडिया सोचें।",en:"Think business idea."},{hi:"₹40 बचाएं।",en:"Save ₹40."}],
+                    [{hi:"पैसिव vs एक्टिव इनकम में अंतर।",en:"Passive vs active income."},{hi:"म्यूचुअल फंड में निवेश कैसे?",en:"How to invest in MF?"},{hi:"₹20 बचाएं।",en:"Save ₹20."}],
+                    [{hi:"फाइनेंशियल फ्रीडम 3 नियम बताएं।",en:"3 rules of financial freedom."},{hi:"एक ऑनलाइन कोर्स का आइडिया।",en:"Online course idea."},{hi:"₹35 बचाएं।",en:"Save ₹35."}],
+                    [{hi:"सप्ताह में सीखे 5 finance concepts।",en:"5 finance concepts learned."},{hi:"अपना पूरा रोडमैप बनाएं।",en:"Build full roadmap."},{hi:"सप्ताह की बचत जोड़ें।",en:"Add week savings."}]
                 ],
-                quiz: [
-                    { q: {hi:"फाइनेंशियल फ्रीडम का असली मतलब क्या है?", en:"Real meaning of financial freedom?"},
-                      options: [{hi:"महंगी गाड़ी खरीदना", en:"Buying expensive car"}, {hi:"पैसिव इनकम > खर्च", en:"Passive Income > Expenses"}, {hi:"बैंक से लोन लेना", en:"Taking loan from bank"}],
-                      correct: 1,
-                      exp: {hi:"फाइनेंशियल फ्रीडम = आपकी passive income जीवनयापन के खर्चों से ज्यादा हो।", en:"Financial freedom = Passive income > living expenses."} }
+                quizPool: [
+                    [{q:{hi:"फाइनेंशियल फ्रीडम का मतलब?",en:"Financial freedom means?"},
+                      options:[{hi:"महंगी गाड़ी",en:"Expensive car"},{hi:"पैसिव इनकम > खर्च",en:"Passive income > expense"},{hi:"लोन",en:"Loan"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"पैसिव इनकम > खर्च।",en:"Passive income > expense."}},
+                     {q:{hi:"पैसिव इनकम का उदाहरण?",en:"Passive income example?"},
+                      options:[{hi:"नौकरी",en:"Job"},{hi:"किराया",en:"Rent"},{hi:"दिहाड़ी",en:"Daily wage"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"किराया पैसिव इनकम है।",en:"Rent is passive."}},
+                     {q:{hi:"₹40,000/month के लिए 8% पर कितना निवेश?",en:"₹40,000/month at 8% - investment needed?"},
+                      options:[{hi:"₹10 लाख",en:"₹10 lakh"},{hi:"₹40 लाख",en:"₹40 lakh"},{hi:"₹60 लाख",en:"₹60 lakh"},{hi:"₹1 करोड़",en:"₹1 crore"}],correct:2,exp:{hi:"₹40,000×12÷0.08=₹60 लाख।",en:"₹60 lakh."}},
+                     {q:{hi:"SIP क्या है?",en:"SIP is?"},
+                      options:[{hi:"Systematic Investment Plan",en:"Systematic Investment Plan"},{hi:"Simple Income Plan",en:"Simple Income Plan"},{hi:"Saving Interest Plan",en:"Saving Interest Plan"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"Systematic Investment Plan।",en:"Systematic Investment Plan."}},
+                     {q:{hi:"फाइनेंशियल फ्रीडम पहला नियम?",en:"First rule of financial freedom?"},
+                      options:[{hi:"ज्यादा खर्च",en:"Spend more"},{hi:"कम खर्चें",en:"Spend less"},{hi:"उधार लें",en:"Borrow"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"कम खर्चें।",en:"Spend less."}}],
+                    [{q:{hi:"₹20,000/month के लिए 8% पर कितना निवेश?",en:"₹20,000/month at 8% - investment?"},
+                      options:[{hi:"₹10 लाख",en:"₹10 lakh"},{hi:"₹20 लाख",en:"₹20 lakh"},{hi:"₹30 लाख",en:"₹30 lakh"},{hi:"₹50 लाख",en:"₹50 lakh"}],correct:2,exp:{hi:"20000×12÷0.08=₹30 लाख।",en:"₹30 lakh."}},
+                     {q:{hi:"पैसिव इनकम के 3 स्रोत?",en:"3 passive income sources?"},
+                      options:[{hi:"नौकरी, दिहाड़ी, ओवरटाइम",en:"Job, wage, overtime"},{hi:"डिविडेंड, किराया, FD ब्याज",en:"Dividend, rent, FD interest"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"डिविडेंड, किराया, FD ब्याज।",en:"Dividend, rent, FD interest."}},
+                     {q:{hi:"SIP कब शुरू करें?",en:"When to start SIP?"},
+                      options:[{hi:"40 साल बाद",en:"After 40"},{hi:"जितनी जल्दी हो",en:"As early as possible"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"जितनी जल्दी हो।",en:"As early as possible."}},
+                     {q:{hi:"₹1 करोड़ ₹10 साल में - हर महीने कितना निवेश?",en:"₹1 crore in 10 years - monthly investment?"},
+                      options:[{hi:"₹10,000",en:"₹10,000"},{hi:"₹30,000",en:"₹30,000"},{hi:"₹50,000",en:"₹50,000"},{hi:"₹1 लाख",en:"₹1 lakh"}],correct:1,exp:{hi:"8% return पर लगभग ₹30,000-40,000।",en:"~₹30,000-40,000 at 8%."}},
+                     {q:{hi:"₹1 करोड़ रोडमैप में कौन सा साल?",en:"Year for ₹1 crore in roadmap?"},
+                      options:[{hi:"25",en:"25"},{hi:"30",en:"30"},{hi:"35",en:"35"},{hi:"40",en:"40"}],correct:2,exp:{hi:"35 साल पर।",en:"At 35."}}],
+                    [{q:{hi:"फाइनेंशियल फ्रीडम का सबसे बड़ा दुश्मन?",en:"Biggest enemy of financial freedom?"},
+                      options:[{hi:"बचत",en:"Saving"},{hi:"फिजूलखर्ची",en:"Wasteful spending"},{hi:"निवेश",en:"Investment"},{hi:"पढ़ाई",en:"Study"}],correct:1,exp:{hi:"फिजूलखर्ची।",en:"Wasteful spending."}},
+                     {q:{hi:"पैसिव इनकम क्या है?",en:"Passive income is?"},
+                      options:[{hi:"काम करके",en:"By working"},{hi:"बिना काम के",en:"Without working"},{hi:"खर्च",en:"Expense"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"बिना काम के।",en:"Without active work."}},
+                     {q:{hi:"₹1,00,000/month के लिए 8% पर निवेश?",en:"₹1,00,000/month at 8%?"},
+                      options:[{hi:"₹1 करोड़",en:"₹1 crore"},{hi:"₹1.5 करोड़",en:"₹1.5 crore"},{hi:"₹2 करोड़",en:"₹2 crore"},{hi:"₹50 लाख",en:"₹50 lakh"}],correct:1,exp:{hi:"1 लाख×12÷0.08=₹1.5 करोड़।",en:"₹1.5 crore."}},
+                     {q:{hi:"म्यूचुअल फंड में निवेश?",en:"Mutual fund investment?"},
+                      options:[{hi:"मुश्किल",en:"Hard"},{hi:"आसान (SIP)",en:"Easy (SIP)"},{hi:"असंभव",en:"Impossible"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"आसान SIP से।",en:"Easy via SIP."}},
+                     {q:{hi:"ऑनलाइन कोर्स क्या है?",en:"Online course is?"},
+                      options:[{hi:"पैसिव इनकम",en:"Passive income"},{hi:"खर्च",en:"Expense"},{hi:"नुकसान",en:"Loss"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"पैसिव इनकम।",en:"Passive income."}}],
+                    [{q:{hi:"फाइनेंशियल फ्रीडम में पहला साल?",en:"First year in financial freedom?"},
+                      options:[{hi:"20",en:"20"},{hi:"30",en:"30"},{hi:"40",en:"40"},{hi:"50",en:"50"}],correct:0,exp:{hi:"20 साल - स्किल सीखें।",en:"Age 20 - learn skills."}},
+                     {q:{hi:"पैसिव इनकम के 5 स्रोत?",en:"5 passive income sources?"},
+                      options:[{hi:"नौकरी, ओवरटाइम",en:"Job, overtime"},{hi:"डिविडेंड, किराया, FD, रॉयल्टी, कोर्स",en:"Dividend, rent, FD, royalty, course"},{hi:"कोई नहीं",en:"None"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"डिविडेंड, किराया, FD, रॉयल्टी, कोर्स।",en:"Dividend, rent, FD, royalty, course."}},
+                     {q:{hi:"₹50,000/month के लिए 8% पर निवेश?",en:"₹50,000/month at 8%?"},
+                      options:[{hi:"₹50 लाख",en:"₹50 lakh"},{hi:"₹75 लाख",en:"₹75 lakh"},{hi:"₹1 करोड़",en:"₹1 crore"},{hi:"₹2 करोड़",en:"₹2 crore"}],correct:1,exp:{hi:"50000×12÷0.08=₹75 लाख।",en:"₹75 lakh."}},
+                     {q:{hi:"SIP कितनी बार करते हैं?",en:"SIP frequency?"},
+                      options:[{hi:"साल में 1 बार",en:"Once a year"},{hi:"महीने में 1 बार",en:"Monthly"},{hi:"हर दिन",en:"Daily"},{hi:"कभी नहीं",en:"Never"}],correct:1,exp:{hi:"महीने में 1 बार।",en:"Monthly."}},
+                     {q:{hi:"क्या 1 करोड़ जल्दी बन सकता है?",en:"Can ₹1 crore be made fast?"},
+                      options:[{hi:"हाँ, 1 दिन",en:"Yes, 1 day"},{hi:"नहीं, मेहनत+समय",en:"No, work+time"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"मेहनत+समय से।",en:"Work+time."}}],
+                    [{q:{hi:"एक्टिव vs पैसिव इनकम में अंतर?",en:"Active vs passive income?"},
+                      options:[{hi:"कोई नहीं",en:"None"},{hi:"एक्टिव = काम से, पैसिव = बिना काम",en:"Active=work, passive=no work"},{hi:"दोनों एक",en:"Same"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"एक्टिव काम से, पैसिव बिना काम।",en:"Active=work, passive=no work."}},
+                     {q:{hi:"₹10 लाख पर 10% return - सालाना कितना?",en:"₹10 lakh at 10% - yearly return?"},
+                      options:[{hi:"₹10,000",en:"₹10,000"},{hi:"₹50,000",en:"₹50,000"},{hi:"₹1,00,000",en:"₹1,00,000"},{hi:"₹5,00,000",en:"₹5,00,000"}],correct:2,exp:{hi:"10 लाख×0.1=₹1 लाख।",en:"₹1 lakh."}},
+                     {q:{hi:"फाइनेंशियल फ्रीडम का पहला कदम?",en:"First step of financial freedom?"},
+                      options:[{hi:"कार खरीदें",en:"Buy car"},{hi:"स्किल सीखें",en:"Learn skills"},{hi:"लोन लें",en:"Take loan"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"स्किल सीखें।",en:"Learn skills."}},
+                     {q:{hi:"खर्च कम करने का तरीका?",en:"How to reduce expense?"},
+                      options:[{hi:"जरूरत/इच्छा में फर्क",en:"Distinguish needs/wants"},{hi:"सब खरीदें",en:"Buy all"},{hi:"कुछ नहीं",en:"Nothing"},{hi:"पता नहीं",en:"Don't know"}],correct:0,exp:{hi:"जरूरत/इच्छा में फर्क।",en:"Distinguish needs/wants."}},
+                     {q:{hi:"₹5 लाख 10% return 5 साल में (CI)?",en:"₹5 lakh at 10% CI for 5 years?"},
+                      options:[{hi:"₹5 लाख",en:"₹5 lakh"},{hi:"₹7.5 लाख",en:"₹7.5 lakh"},{hi:"₹8 लाख",en:"₹8 lakh"},{hi:"₹10 लाख",en:"₹10 lakh"}],correct:2,exp:{hi:"5×1.1⁵≈8 लाख।",en:"5×1.61≈8 lakh."}}],
+                    [{q:{hi:"स्टार्टअप क्या है?",en:"Startup is?"},
+                      options:[{hi:"नई कंपनी",en:"New company"},{hi:"बैंक",en:"Bank"},{hi:"गेम",en:"Game"},{hi:"कुछ नहीं",en:"Nothing"}],correct:0,exp:{hi:"नई कंपनी।",en:"New company."}},
+                     {q:{hi:"इलॉन मस्क किसके CEO?",en:"Elon Musk CEO of?"},
+                      options:[{hi:"Google",en:"Google"},{hi:"Tesla, SpaceX",en:"Tesla, SpaceX"},{hi:"Apple",en:"Apple"},{hi:"Microsoft",en:"Microsoft"}],correct:1,exp:{hi:"Tesla, SpaceX।",en:"Tesla, SpaceX."}},
+                     {q:{hi:"वॉरेन बफे कौन हैं?",en:"Who is Warren Buffett?"},
+                      options:[{hi:"बल्लेबाज",en:"Cricketer"},{hi:"निवेशक",en:"Investor"},{hi:"अभिनेता",en:"Actor"},{hi:"कुछ नहीं",en:"Nothing"}],correct:1,exp:{hi:"प्रसिद्ध निवेशक।",en:"Famous investor."}},
+                     {q:{hi:"₹1 करोड़ कितना है?",en:"₹1 crore equals?"},
+                      options:[{hi:"₹1 लाख",en:"₹1 lakh"},{hi:"₹10 लाख",en:"₹10 lakh"},{hi:"₹100 लाख",en:"₹100 lakh"},{hi:"₹1000",en:"₹1000"}],correct:2,exp:{hi:"₹1 करोड़ = ₹100 लाख।",en:"₹1 crore = ₹100 lakh."}},
+                     {q:{hi:"फाइनेंशियल फ्रीडम का समय?",en:"Financial freedom duration?"},
+                      options:[{hi:"1 दिन",en:"1 day"},{hi:"मैराथन (सालों की)",en:"Marathon (years)"},{hi:"कभी नहीं",en:"Never"},{hi:"पता नहीं",en:"Don't know"}],correct:1,exp:{hi:"सालों की मैराथन।",en:"Years-long marathon."}}]
                 ]
             }
         }
     }
 };
 
-/* ---------- RENDER FUNCTIONS ---------- */
+/* ============================================================
+   RENDER FUNCTIONS
+   ============================================================ */
 
 function updateBanner() {
     const data = curriculum[currentTrack];
@@ -527,6 +1387,7 @@ function updateBanner() {
 function switchTrack(trackNum) {
     currentTrack = trackNum;
     currentClass = (trackNum === 1) ? 1 : 6;
+    todayProgress = { tasksCompleted: 0, quizPassed: false, quizScore: 0, quizTotal: 0, rank: '-' };
 
     const btn1 = document.getElementById('btn-track1');
     const btn2 = document.getElementById('btn-track2');
@@ -558,7 +1419,12 @@ function renderClassTabs() {
         const btn = document.createElement('button');
         btn.innerText = currentLang === 'hi' ? `कक्षा ${i}` : `Class ${i}`;
         btn.className = `px-3 md:px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition ${currentClass === i ? 'tab-active' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`;
-        btn.onclick = () => { currentClass = i; renderClassTabs(); renderContent(); };
+        btn.onclick = () => {
+            currentClass = i;
+            todayProgress = { tasksCompleted: 0, quizPassed: false, quizScore: 0, quizTotal: 0, rank: '-' };
+            renderClassTabs();
+            renderContent();
+        };
         container.appendChild(btn);
     }
 }
@@ -567,11 +1433,12 @@ function renderContent() {
     const classData = curriculum[currentTrack].classes[currentClass];
     if (!classData) return;
 
-    // Class title
-    const titleEl = document.createElement('h3');
-    titleEl.className = "text-sm font-bold text-indigo-900 mb-2";
+    // Daily index — rotate content based on day of year
+    const dailyIdx = dayOfYear() % classData.tasksPool.length;
+    const todayTasks = classData.tasksPool[dailyIdx];
+    const todayQuiz = classData.quizPool[dailyIdx];
 
-    // LESSONS
+    // ============ LESSONS ============
     const lessonsContainer = document.getElementById('lessons-container');
     lessonsContainer.innerHTML = '';
     classData.lessons.forEach((lesson, idx) => {
@@ -605,12 +1472,13 @@ function renderContent() {
         lessonsContainer.appendChild(lessonEl);
     });
 
-    // TASKS
+    // ============ DAILY TASKS (rotating) ============
     const tasksContainer = document.getElementById('tasks-container');
-    tasksContainer.innerHTML = '';
-    classData.tasks.forEach((task, idx) => {
+    const dateLabel = currentLang === 'hi' ? 'आज के टास्क' : "Today's Tasks";
+    tasksContainer.innerHTML = `<p class="text-xs text-emerald-700 font-semibold mb-2">📅 ${dateLabel} (${new Date().toLocaleDateString()})</p>`;
+    todayTasks.forEach((task, idx) => {
         const taskText = currentLang === 'hi' ? task.hi : task.en;
-        const taskId = `t${currentTrack}_${currentClass}_${idx}`;
+        const taskId = `t${currentTrack}_${currentClass}_${dailyIdx}_${idx}`;
         tasksContainer.innerHTML += `
             <label class="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 cursor-pointer transition">
                 <input type="checkbox" id="${taskId}" onchange="completeTask(this, '${taskId}')" class="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
@@ -619,16 +1487,17 @@ function renderContent() {
         `;
     });
 
-    // QUIZ
+    // ============ QUIZ with Rank System ============
     const quizContainer = document.getElementById('quiz-container');
-    quizContainer.innerHTML = '';
-    classData.quiz.forEach((q, qIdx) => {
+    quizContainer.innerHTML = `<p class="text-xs text-purple-700 font-semibold mb-3">📅 ${todayQuiz.length} ${currentLang === 'hi' ? 'प्रश्न - आज की परीक्षा' : 'questions - today\'s test'}</p>`;
+
+    todayQuiz.forEach((q, qIdx) => {
         const qText = currentLang === 'hi' ? q.q.hi : q.q.en;
         let optionsHtml = '';
         q.options.forEach((opt, oIdx) => {
             const optText = currentLang === 'hi' ? opt.hi : opt.en;
             optionsHtml += `
-                <button onclick="checkAnswer(${qIdx}, ${oIdx}, ${q.correct}, '${encodeURIComponent(currentLang === 'hi' ? q.exp.hi : q.exp.en)}')"
+                <button onclick="checkAnswer(${qIdx}, ${oIdx}, ${q.correct}, '${encodeURIComponent(currentLang === 'hi' ? q.exp.hi : q.exp.en)}', ${todayQuiz.length})"
                     class="quiz-opt-${qIdx} w-full text-left p-3 rounded-lg border border-slate-200 text-xs font-medium hover:bg-purple-50 hover:border-purple-300 transition mb-2">
                     ${oIdx + 1}. ${optText}
                 </button>
@@ -642,6 +1511,16 @@ function renderContent() {
             </div>
         `;
     });
+
+    // Result box (initially hidden)
+    quizContainer.innerHTML += `
+        <div id="quiz-result-box" class="hidden p-4 rounded-xl border-2 border-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50">
+            <h4 class="font-extrabold text-lg text-yellow-900 mb-2">📊 आपका आज का रिज़ल्ट / Today's Result</h4>
+            <div id="quiz-result-content"></div>
+        </div>
+    `;
+
+    todayProgress.quizTotal = todayQuiz.length;
 }
 
 function toggleRead(idx) {
@@ -663,7 +1542,7 @@ function speakLesson(idx) {
     window.speechSynthesis.speak(utter);
 }
 
-function checkAnswer(quizIdx, selectedIdx, correctIdx, explanationEncoded) {
+function checkAnswer(quizIdx, selectedIdx, correctIdx, explanationEncoded, totalQuestions) {
     const explanation = decodeURIComponent(explanationEncoded);
     const feedbackDiv = document.getElementById(`feedback-${quizIdx}`);
     const buttons = document.querySelectorAll(`.quiz-opt-${quizIdx}`);
@@ -674,7 +1553,8 @@ function checkAnswer(quizIdx, selectedIdx, correctIdx, explanationEncoded) {
         feedbackDiv.className = "mt-2 p-3 rounded-lg text-xs bg-emerald-50 border border-emerald-200 text-emerald-800";
         feedbackDiv.innerHTML = `✅ <strong>सही! / Correct!</strong> +20 अंक<br><span class="text-slate-600 mt-1 block">${explanation}</span>`;
         updateScore(20);
-        saveProgress(20, 'quiz', quizIdx);
+        todayProgress.quizScore++;
+        saveProgress(20, 'quiz', `${currentClass}_${dayOfYear()}_${quizIdx}`);
     } else {
         buttons[selectedIdx].className = "w-full text-left p-3 rounded-lg border text-xs font-medium mb-2 bg-red-100 border-red-500 text-red-900 font-bold";
         buttons[correctIdx].className = "w-full text-left p-3 rounded-lg border text-xs font-medium mb-2 bg-emerald-100 border-emerald-500 text-emerald-900 font-bold";
@@ -682,11 +1562,59 @@ function checkAnswer(quizIdx, selectedIdx, correctIdx, explanationEncoded) {
         feedbackDiv.innerHTML = `❌ <strong>गलत! / Wrong!</strong> सही उत्तर हरे रंग में<br><span class="text-slate-600 mt-1 block">${explanation}</span>`;
     }
     feedbackDiv.classList.remove('hidden');
+
+    // Check if all questions answered → show result
+    const answeredCount = document.querySelectorAll('[id^="feedback-"]:not(.hidden)').length;
+    if (answeredCount === totalQuestions) {
+        showQuizResult(totalQuestions);
+    }
+}
+
+function showQuizResult(total) {
+    const box = document.getElementById('quiz-result-box');
+    const content = document.getElementById('quiz-result-content');
+    if (!box || !content) return;
+
+    const score = todayProgress.quizScore;
+    const pct = Math.round((score / total) * 100);
+    const rank = getRank(pct);
+    const passed = pct >= 60;
+
+    todayProgress.rank = rank;
+    todayProgress.quizPassed = passed;
+
+    content.innerHTML = `
+        <div class="grid grid-cols-2 gap-3 mb-3">
+            <div class="bg-white p-3 rounded-lg text-center shadow">
+                <p class="text-xs text-slate-600">सही उत्तर</p>
+                <p class="text-2xl font-extrabold text-emerald-700">${score}/${total}</p>
+            </div>
+            <div class="bg-white p-3 rounded-lg text-center shadow">
+                <p class="text-xs text-slate-600">प्रतिशत</p>
+                <p class="text-2xl font-extrabold text-purple-700">${pct}%</p>
+            </div>
+        </div>
+        <div class="bg-white p-3 rounded-lg shadow text-center">
+            <p class="text-xs text-slate-600 mb-1">आपका रैंक</p>
+            <p class="text-2xl font-extrabold">${rank}</p>
+        </div>
+        <div class="mt-3 p-3 rounded-lg ${passed ? 'bg-emerald-100 border border-emerald-400' : 'bg-red-100 border border-red-400'}">
+            <p class="text-sm font-bold ${passed ? 'text-emerald-900' : 'text-red-900'}">
+                ${passed ? '🎉 बहुत बढ़िया! आज का टास्क पूरा हुआ!' : '📚 अभी और अभ्यास करें - पाठ दोबारा पढ़ें'}
+            </p>
+            <p class="text-xs ${passed ? 'text-emerald-700' : 'text-red-700'} mt-1">
+                ${passed ? 'कल नया टास्क आएगा - रोज़ आएं!' : '60% से ज्यादा स्कोर करें ताकि टास्क पूरा माने'}
+            </p>
+        </div>
+    `;
+    box.classList.remove('hidden');
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function completeTask(checkbox, taskId) {
     if (checkbox.checked) {
         updateScore(10);
+        todayProgress.tasksCompleted++;
         saveProgress(10, 'task', taskId);
     }
 }
@@ -694,6 +1622,7 @@ function completeTask(checkbox, taskId) {
 function updateScore(points) {
     userTotalPoints += points;
     document.getElementById('score-display').innerText = userTotalPoints;
+    localStorage.setItem('fmh_score', userTotalPoints);
 }
 
 async function saveProgress(points, type, id) {
@@ -701,13 +1630,10 @@ async function saveProgress(points, type, id) {
         await fetch('/api/progress/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                points, track: currentTrack, classNum: currentClass,
-                taskOrQuizId: id, type
-            })
+            body: JSON.stringify({ points, track: currentTrack, classNum: currentClass, taskOrQuizId: id, type })
         });
     } catch (err) {
-        localStorage.setItem('fmh_score', userTotalPoints);
+        // fallback to localStorage (already saved)
     }
 }
 
@@ -747,20 +1673,16 @@ async function sendToGemini() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: `You are a friendly AI teacher for children (ages 5-20) in India, teaching financial freedom, AI, coding, computer skills, and freelancing. Always answer in very simple Hindi (with some English words in brackets for technical terms). Keep responses short (under 150 words), encouraging, and use emojis. Question: ${userInput}`
-                        }]
-                    }]
+                    contents: [{ parts: [{
+                        text: `You are a friendly AI teacher for children (ages 5-20) in India, teaching financial freedom, AI, coding, computer skills, and freelancing. Always answer in very simple Hindi (with some English words in brackets for technical terms). Keep responses short (under 150 words), encouraging, and use emojis. Question: ${userInput}`
+                    }] }]
                 })
             }
         );
 
         const data = await response.json();
         document.getElementById(loadId).remove();
-
         if (data.error) throw new Error(data.error.message);
-
         const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
         chat.innerHTML += `<div class="bg-emerald-50 text-emerald-900 p-2 rounded-lg text-xs mr-auto max-w-[85%] border border-emerald-200 fade-in whitespace-pre-wrap"><b>🤖 AI:</b> ${escapeHtml(reply)}</div>`;
     } catch (error) {
@@ -776,6 +1698,25 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+/* ---------- SERVER API KEY LOADER ---------- */
+
+async function loadServerApiKey() {
+    try {
+        const res = await fetch('/api/get-key');
+        const data = await res.json();
+        const keyField = document.getElementById('gemini-key');
+
+        if (data.key && !keyField.value) {
+            keyField.value = data.key;
+            keyField.type = 'hidden';
+            keyField.insertAdjacentHTML('afterend',
+                '<p class="text-[10px] text-emerald-600 text-center mt-1">✅ AI तैयार है (Teacher Key)</p>');
+        }
+    } catch (e) {
+        console.log('Server key not available, student must enter own key.');
+    }
+}
+
 /* ---------- INIT ---------- */
 
 document.getElementById('chat-messages').innerHTML = `
@@ -789,7 +1730,10 @@ document.getElementById('chat-messages').innerHTML = `
 window.onload = () => {
     loadProgress();
     switchTrack(1);
+    loadServerApiKey();
 };
-</script>
+</script>    
+    
+
 </body>
-  </html>
+    </html>
