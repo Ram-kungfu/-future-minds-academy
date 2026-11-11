@@ -5,7 +5,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve static files from root folder (index.html is here)
+app.use(express.static(__dirname));
 
 // In-memory progress store (per-user would use sessions/DB in production)
 let userProgress = {
@@ -54,9 +56,9 @@ app.post('/api/progress/reset', (req, res) => {
     res.json({ success: true, message: "Progress reset" });
 });
 
-// SPA fallback
+// SPA fallback - serve index.html from root
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
