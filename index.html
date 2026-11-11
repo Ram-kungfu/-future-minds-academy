@@ -108,7 +108,7 @@
                 <h3 class="text-sm font-extrabold">🤖 Gemini AI शिक्षक</h3>
             </div>
             <div class="p-2 bg-slate-50 border-b">
-                <input type="password" id="gemini-key" placeholder="Gemini API Key यहाँ डालें" class="w-full text-xs p-2 border rounded-lg">
+                <input type="password" id="gemini-key" placeholder="Gemini API Key (खाली छोड़ सकते हैं अगर सर्वर पर सेट है)" class="w-full text-xs p-2 border rounded-lg">
             </div>
             <div id="chat-messages" class="flex-grow overflow-y-auto bg-slate-50 p-3 space-y-2 text-sm">
                 <div class="bg-indigo-50 text-indigo-900 p-2 rounded-lg text-xs border border-indigo-200">
@@ -173,14 +173,15 @@
 
 <script>
 /* ============================================
-   STATE (स्टेट को फिक्स किया गया है)
+   STATE
    ============================================ */
 let currentClass = null;
-let currentLevel = 1; // डिफ़ॉल्ट रूप से 1 रहेगा
+let currentLevel = 1; 
 let totalPoints = parseInt(localStorage.getItem('fmh_total') || '0');
 document.getElementById('score-display').innerText = totalPoints;
 
 let todayProgress = { tasks: 0, quizCorrect: 0, quizTotal: 0 };
+let serverApiKey = "";
 
 /* ============================================
    WEEK CALCULATION 
@@ -190,7 +191,6 @@ function getCurrentWeekInfo() {
     const start = new Date(now.getFullYear(), 0, 1);
     const weekNum = Math.floor((now - start) / (7 * 24 * 60 * 60 * 1000)) + 1;
     const cycle = ((weekNum - 1) % 4) + 1;
-    // असली लेवल (1 से 13) निकालें
     const actualLevel = Math.floor((weekNum - 1) / 4) + 1;
     return { cycle, weekNum, level: Math.min(actualLevel, 13) };
 }
@@ -486,7 +486,7 @@ const curriculum = {
                 }
             },
             
-            // ===== LEVEL 2 (NEW) =====
+            // ===== LEVEL 2 =====
             2: {
                 1: { // कंप्यूटर
                     title: "💻 Level 2 - स्क्रीन, स्पीकर, CPU",
@@ -1043,7 +1043,7 @@ const curriculum = {
                 }
             },
             
-            // ===== LEVEL 2 (NEW) =====
+            // ===== LEVEL 2 =====
             2: {
                 1: { // कंप्यूटर
                     title: "💻 Level 2 - स्क्रीन, स्पीकर, CPU",
@@ -1329,7 +1329,7 @@ function openClass(cls) {
     currentClass = cls;
     const info = getCurrentWeekInfo();
     
-    // बग फिक्स: अगर सिस्टम का लेवल 2 है लेकिन डेटा 2 का नहीं है, तो उसे 1 पर सेट करें
+    // अगर सिस्टम का लेवल 2 है लेकिन डेटा 2 का नहीं है, तो उसे 1 पर सेट करें
     const targetLevel = curriculum[cls].levels[info.level] ? info.level : 1;
     currentLevel = targetLevel; 
     
@@ -1550,9 +1550,11 @@ function showResult(total) {
 
 /* GEMINI (फिक्स किया गया मॉडल) */
 async function sendToGemini() {
-    const apiKey = document.getElementById('gemini-key').value.trim();
+    const inputKey = document.getElementById('gemini-key').value.trim();
+    const apiKey = inputKey || serverApiKey; // सर्वर key या यूजर key
     const userInput = document.getElementById('user-input').value.trim();
     const chat = document.getElementById('chat-messages');
+
     if (!apiKey) { alert("⚠️ पहले Gemini API Key डालें!"); return; }
     if (!userInput) return;
 
@@ -1564,7 +1566,7 @@ async function sendToGemini() {
     chat.innerHTML += `<div id="${loadId}" class="bg-slate-200 text-slate-700 p-2 rounded-lg text-xs mr-auto max-w-[85%] animate-pulse">🤖 सोच रहा है...</div>`;
 
     try {
-        // यहाँ मॉडल को gemini-2.0-flash कर दिया गया है
+        // मॉडल: gemini-1.5-flash (या 2.0-flash)
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1587,6 +1589,27 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// सर्वर से API Key उठाने का फंक्शन (Render के लिए)
+async function loadServerApiKey() {
+    try {
+        const res = await fetch('/api/get-key');
+        const data = await res.json();
+        if (data.key) {
+            serverApiKey = data.key;
+            const keyField = document.getElementById('gemini-key');
+            keyField.value = data.key;
+            keyField.type = 'hidden';
+            keyField.insertAdjacentHTML('afterend', '<p class="text-[10px] text-emerald-600 text-center mt-1">✅ AI तैयार है (Server Key Loaded)</p>');
+        }
+    } catch (e) {
+        console.log('Server key not available. Please enter manually.');
+    }
+}
+
+window.onload = () => {
+    loadServerApiKey();
+};
 </script>
 </body>
     </html>
