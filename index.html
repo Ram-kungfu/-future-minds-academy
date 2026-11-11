@@ -108,7 +108,7 @@
                 <h3 class="text-sm font-extrabold">🤖 Gemini AI शिक्षक</h3>
             </div>
             <div class="p-2 bg-slate-50 border-b">
-                <input type="password" id="gemini-key" placeholder="Gemini API Key" class="w-full text-xs p-2 border rounded-lg">
+                <input type="password" id="gemini-key" placeholder="Gemini API Key यहाँ डालें" class="w-full text-xs p-2 border rounded-lg">
             </div>
             <div id="chat-messages" class="flex-grow overflow-y-auto bg-slate-50 p-3 space-y-2 text-sm">
                 <div class="bg-indigo-50 text-indigo-900 p-2 rounded-lg text-xs border border-indigo-200">
@@ -130,7 +130,7 @@
 
         <!-- LEVEL SELECTOR -->
         <div class="mb-4 bg-white p-3 rounded-xl shadow-sm border border-indigo-200">
-            <h3 class="text-xs font-bold text-slate-700 mb-2">📊 अपना लेवल चुनें (जो चल रहा है वो हरे रंग में)</h3>
+            <h3 class="text-xs font-bold text-slate-700 mb-2">📊 अपना लेवल चुनें (जो उपलब्ध है उसे दबाएं)</h3>
             <div id="level-selector" class="grid grid-cols-5 gap-1.5"></div>
         </div>
 
@@ -173,28 +173,26 @@
 
 <script>
 /* ============================================
-   STATE
+   STATE (स्टेट को फिक्स किया गया है)
    ============================================ */
 let currentClass = null;
-let currentLevel = 1;
+let currentLevel = 1; // डिफ़ॉल्ट रूप से 1 रहेगा
 let totalPoints = parseInt(localStorage.getItem('fmh_total') || '0');
 document.getElementById('score-display').innerText = totalPoints;
 
 let todayProgress = { tasks: 0, quizCorrect: 0, quizTotal: 0 };
 
 /* ============================================
-   लेवल कैलकुलेशन
-   साल का हफ्ता = 1 से 52
-   Cycle = (हफ्ता - 1) % 4 + 1 (1=कंप्यूटर, 2=AI, 3=फाइनेंस, 4=रिवीजन)
-   Level = Math.floor((हफ्ता - 1) / 4) + 1 (1 से 13 तक)
+   WEEK CALCULATION 
    ============================================ */
 function getCurrentWeekInfo() {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 1);
     const weekNum = Math.floor((now - start) / (7 * 24 * 60 * 60 * 1000)) + 1;
     const cycle = ((weekNum - 1) % 4) + 1;
-    const level = Math.floor((weekNum - 1) / 4) + 1;
-    return { cycle, weekNum, level: Math.min(level, 13) };
+    // असली लेवल (1 से 13) निकालें
+    const actualLevel = Math.floor((weekNum - 1) / 4) + 1;
+    return { cycle, weekNum, level: Math.min(actualLevel, 13) };
 }
 
 function getTopicName(cycle) {
@@ -205,12 +203,8 @@ function getTopicName(cycle) {
 }
 
 /* ============================================
-   CURRICULUM DATABASE
-   हर कक्षा में 13 लेवल
-   हर लेवल में 4 हफ्ते (कंप्यूटर, AI, फाइनेंस, रिवीजन)
-   हर हफ्ते में 7 दिन के टास्क + क्विज़
+   CURRICULUM DATABASE (यहाँ Level 1 और 2 जोड़े गए हैं)
    ============================================ */
-
 const curriculum = {
     1: {
         name: "कक्षा 1 (उम्र 5-7)",
@@ -490,8 +484,283 @@ const curriculum = {
                         ]
                     ]
                 }
+            },
+            
+            // ===== LEVEL 2 (NEW) =====
+            2: {
+                1: { // कंप्यूटर
+                    title: "💻 Level 2 - स्क्रीन, स्पीकर, CPU",
+                    lessons: [
+                        {title:"मॉनिटर (स्क्रीन)", desc:"जहाँ सब दिखता है", youtube:"https://www.youtube.com/results?search_query=मॉनिटर+बच्चों+हिंदी", read:"मॉनिटर = स्क्रीन\n\nयहाँ दिखता है:\n📺 वीडियो\n🎨 चित्र\n📝 लिखावट\n\nTV और मॉनिटर दोनों स्क्रीन हैं।"},
+                        {title:"स्पीकर", desc:"आवाज़ सुनने का यंत्र", youtube:"https://www.youtube.com/results?search_query=स्पीकर+बच्चों+हिंदी", read:"स्पीकर से आवाज़ सुनते हैं।\n\n🎵 गाना\n🎬 वीडियो की आवाज़\n📢 घोषणा\n\nस्पीकर कंप्यूटर से जुड़ा होता है।"},
+                        {title:"CPU", desc:"कंप्यूटर का दिमाग", youtube:"https://www.youtube.com/results?search_query=CPU+बच्चों+हिंदी", read:"CPU = कंप्यूटर का दिमाग\n\nयह:\n🧠 सोचता है\n⚡ तेज़ काम करता है\n📊 सब जोड़ता है\n\nCPU के बिना कंप्यूटर नहीं चलेगा!"}
+                    ],
+                    tasksPool: [
+                        ["मॉनिटर पर क्या दिख रहा - बताएं","स्पीकर से गाना सुनें","₹5 बचाएं","CPU कहाँ है - दिखाएं"],
+                        ["स्क्रीन 1 मिनट देखें","स्पीकर से कहानी सुनें","₹10 बचाएं","CPU का काम बताएं"],
+                        ["TV vs मॉनिटर","स्पीकर बंद/चालू करें","₹8 बचाएं","3 भाग बोलें: स्क्रीन, स्पीकर, CPU"],
+                        ["मॉनिटर का रंग","स्पीकर की आवाज़","₹5 बचाएं","CPU का चित्र बनाएं"],
+                        ["स्क्रीन पर 3 चीज़ें देखें","स्पीकर से 2 गाने","₹10 बचाएं","CPU क्या करता है"],
+                        ["मॉनिटर बड़ा/छोटा","आवाज़ तेज़/धीमी","₹5 बचाएं","दोनों को मिलाकर बताएं"],
+                        ["3 भागों के नाम","स्पीकर पर गाना","बचत जोड़ें","CPU याद करें"]
+                    ],
+                    quizPool: [
+                        [
+                            {q:"स्क्रीन किसे कहते हैं?",options:["मॉनिटर","स्पीकर","CPU","माउस"],correct:0,exp:"मॉनिटर स्क्रीन है।"},
+                            {q:"आवाज़ किससे सुनते हैं?",options:["स्पीकर","मॉनिटर","CPU","कीबोर्ड"],correct:0,exp:"स्पीकर से।"},
+                            {q:"कंप्यूटर का दिमाग?",options:["CPU","स्क्रीन","स्पीकर","माउस"],correct:0,exp:"CPU।"},
+                            {q:"मॉनिटर पर क्या दिखता है?",options:["वीडियो","खाना","पानी","कुछ नहीं"],correct:0,exp:"वीडियो, चित्र।"},
+                            {q:"₹5 + ₹5 = ?",options:["₹10","₹5","₹15","₹20"],correct:0,exp:"10।"}
+                        ],
+                        [
+                            {q:"स्पीकर से क्या?",options:["आवाज़","तस्वीर","टाइप","क्लिक"],correct:0,exp:"आवाज़।"},
+                            {q:"मॉनिटर क्या है?",options:["स्क्रीन","आवाज़","दिमाग","माउस"],correct:0,exp:"स्क्रीन।"},
+                            {q:"CPU का काम?",options:["सोचना","देखना","सुनना","छापना"],correct:0,exp:"सोचना।"},
+                            {q:"TV क्या है?",options:["स्क्रीन","दिमाग","माउस","आवाज़"],correct:0,exp:"स्क्रीन।"},
+                            {q:"₹10 - ₹5 = ?",options:["₹5","₹10","₹15","₹20"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"कंप्यूटर के कितने भाग?",options:["कई","1","2","3"],correct:0,exp:"कई।"},
+                            {q:"स्पीकर कहाँ लगा?",options:["कंप्यूटर के साथ","अलमारी में","रसोई में","बाहर"],correct:0,exp:"कंप्यूटर के साथ।"},
+                            {q:"मॉनिटर का रंग?",options:["कोई भी","सिर्फ काला","सिर्फ सफेद","सिर्फ नीला"],correct:0,exp:"कोई भी।"},
+                            {q:"CPU के बिना कंप्यूटर?",options:["नहीं चलेगा","चलेगा","कुछ नहीं","पता नहीं"],correct:0,exp:"नहीं चलेगा।"},
+                            {q:"₹2 + ₹3 = ?",options:["₹5","₹6","₹4","₹7"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"स्पीकर से गाना सुनते हैं?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"मॉनिटर क्या दिखाता?",options:["सब कुछ","सिर्फ गाना","कुछ नहीं","सिर्फ फोटो"],correct:0,exp:"सब कुछ।"},
+                            {q:"CPU कहाँ है?",options:["कंप्यूटर में","पेड़ पर","आसमान में","जमीन में"],correct:0,exp:"कंप्यूटर में।"},
+                            {q:"स्पीकर कैसा होता है?",options:["छोटा/बड़ा","सिर्फ छोटा","सिर्फ बड़ा","कोई नहीं"],correct:0,exp:"छोटा या बड़ा।"},
+                            {q:"₹5 बचाएं 3 दिन?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"}
+                        ],
+                        [
+                            {q:"TV और मॉनिटर में अंतर?",options:["कुछ नहीं","मॉनिटर कंप्यूटर के साथ","TV बड़ा","मॉनिटर सिर्फ गाना"],correct:0,exp:"मॉनिटर कंप्यूटर के साथ।"},
+                            {q:"स्पीकर से क्या?",options:["आवाज़","तस्वीर","टाइप","क्लिक"],correct:0,exp:"आवाज़।"},
+                            {q:"CPU का दूसरा नाम?",options:["दिमाग","मॉनिटर","स्पीकर","माउस"],correct:0,exp:"दिमाग।"},
+                            {q:"मॉनिटर पर 3 चीज़ें?",options:["वीडियो, चित्र, लिखावट","खाना, पानी","कुछ नहीं","सिर्फ गाना"],correct:0,exp:"वीडियो, चित्र, लिखावट।"},
+                            {q:"₹5 बचाएं 4 दिन?",options:["₹20","₹15","₹10","₹25"],correct:0,exp:"20।"}
+                        ],
+                        [
+                            {q:"स्पीकर की आवाज़ कैसी?",options:["तेज़/धीमी","सिर्फ तेज़","सिर्फ धीमी","कोई नहीं"],correct:0,exp:"तेज़ या धीमी।"},
+                            {q:"मॉनिटर क्या दिखाता?",options:["वीडियो, चित्र","सिर्फ आवाज़","कुछ नहीं","सिर्फ टाइप"],correct:0,exp:"वीडियो, चित्र।"},
+                            {q:"CPU क्या करता?",options:["सोचता","देखता","सुनता","छापता"],correct:0,exp:"सोचता/प्रोसेस करता।"},
+                            {q:"तीनों में सबसे जरूरी?",options:["तीनों","सिर्फ CPU","सिर्फ स्क्रीन","सिर्फ स्पीकर"],correct:0,exp:"तीनों।"},
+                            {q:"₹3 बचाएं 5 दिन?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"}
+                        ],
+                        [
+                            {q:"सप्ताह में क्या सीखा?",options:["स्क्रीन, स्पीकर, CPU","कुछ नहीं","सिर्फ गेम","सिर्फ गाना"],correct:0,exp:"तीनों सीखे।"},
+                            {q:"कंप्यूटर के 3 भाग?",options:["मॉनिटर, स्पीकर, CPU","माउस, कीबोर्ड, स्क्रीन","गाना, फोटो, वीडियो","कोई नहीं"],correct:0,exp:"मॉनिटर, स्पीकर, CPU।"},
+                            {q:"₹1+₹2+₹5 = ?",options:["₹8","₹7","₹6","₹10"],correct:0,exp:"8।"},
+                            {q:"CPU क्या है?",options:["दिमाग","स्क्रीन","आवाज़","माउस"],correct:0,exp:"दिमाग।"},
+                            {q:"स्पीकर से क्या सुनते?",options:["गाना, आवाज़","सिर्फ तस्वीर","कुछ नहीं","सिर्फ लिखावट"],correct:0,exp:"गाना, आवाज़।"}
+                        ]
+                    ]
+                },
+                2: { // AI
+                    title: "🤖 Level 2 - AI से बात करना",
+                    lessons: [
+                        {title:"AI से बात कैसे?", desc:"बोलकर या लिखकर", youtube:"https://www.youtube.com/results?search_query=AI+talk+kids+hindi", read:"AI से बात करें:\n🗣️ बोलकर - 'मौसम कैसा है?'\n⌨️ लिखकर - टाइप करें\n\nAI जवाब देती है!\n\nउदाहरण: Google Assistant से बोलें"},
+                        {title:"Voice Assistant", desc:"Siri, Alexa, Google", youtube:"https://www.youtube.com/results?search_query=voice+assistant+kids+hindi", read:"Voice Assistant = आवाज़ से बात\n\n📱 Siri (Apple)\n🔊 Alexa (Amazon)\n🗣️ Google Assistant\n\nसब AI हैं!\n\nबोलो और जवाब पाओ!"},
+                        {title:"AI से कहानी", desc:"कहानी सुनाओ", youtube:"https://www.youtube.com/results?search_query=AI+story+kids+hindi", read:"AI से कहें:\n📖 'कहानी सुनाओ'\n🎵 'कविता सुनाओ'\n😂 'चुटकुला सुनाओ'\n\nAI सब कर सकती है!"}
+                    ],
+                    tasksPool: [
+                        ["AI से 1 सवाल बोलकर","Google Assistant से कहानी","₹5 बचाएं","AI से चुटकुला"],
+                        ["AI से 2 सवाल लिखकर","Siri/Alexa बोलें","₹10 बचाएं","AI से कविता सुनें"],
+                        ["AI से 3 सवाल","Google Assistant से गाना","₹8 बचाएं","AI से कहानी सुनें"],
+                        ["बोलकर बात करें","Alexa/Siri बताएं","₹5 बचाएं","AI से 2 कहानी"],
+                        ["AI से मौसम पूछें","AI से समय पूछें","₹10 बचाएं","AI से गणित"],
+                        ["AI से 5 सवाल","AI से कविता","₹5 बचाएं","AI से चुटकुला"],
+                        ["AI के 3 फायदे","AI से कहानी","बचत जोड़ें","AI से गाना"]
+                    ],
+                    quizPool: [
+                        [
+                            {q:"AI से कैसे बात करें?",options:["बोलकर/लिखकर","देखकर","सूंघकर","छूकर"],correct:0,exp:"बोलकर या लिखकर।"},
+                            {q:"Siri किसकी है?",options:["Apple","Samsung","Google","Nokia"],correct:0,exp:"Apple की।"},
+                            {q:"Alexa किसकी?",options:["Amazon","Google","Apple","Microsoft"],correct:0,exp:"Amazon की।"},
+                            {q:"AI से कहानी सुनें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"₹5 + ₹5 = ?",options:["₹10","₹5","₹15","₹20"],correct:0,exp:"10।"}
+                        ],
+                        [
+                            {q:"AI से क्या पूछें?",options:["मौसम","सिर्फ गाना","कुछ नहीं","सिर्फ खेल"],correct:0,exp:"मौसम भी।"},
+                            {q:"Voice Assistant क्या?",options:["आवाज़ से बात","सिर्फ गाना","कुछ नहीं","सिर्फ फोटो"],correct:0,exp:"आवाज़ से बात।"},
+                            {q:"AI की आवाज़?",options:["रोबोट जैसी","गाय की","शेर की","चिड़िया की"],correct:0,exp:"रोबोट जैसी।"},
+                            {q:"AI से चुटकुला सुनें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"₹10 - ₹5 = ?",options:["₹5","₹10","₹15","₹20"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"कौन सी AI बोलती है?",options:["Google Assistant","किताब","पेड़","खाना"],correct:0,exp:"Google Assistant।"},
+                            {q:"AI किस भाषा में?",options:["कई भाषाओं में","सिर्फ अंग्रेजी","सिर्फ हिंदी","कोई नहीं"],correct:0,exp:"कई भाषाओं में।"},
+                            {q:"AI से मदद मिलती?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"AI से कविता सुनें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"₹2 + ₹3 = ?",options:["₹5","₹6","₹4","₹7"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"AI से कहानी कैसे?",options:["'कहानी सुनाओ' बोलें","खुद सुनें","कुछ नहीं","मम्मी से कहें"],correct:0,exp:"'कहानी सुनाओ'।"},
+                            {q:"Google Assistant कहाँ?",options:["फोन में","पेड़ में","पानी में","आग में"],correct:0,exp:"फोन में।"},
+                            {q:"AI क्या सीखती?",options:["डेटा से","खाने से","सोने से","खेलने से"],correct:0,exp:"डेटा से।"},
+                            {q:"AI से गाना सुनें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"₹5 बचाएं 3 दिन?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"}
+                        ],
+                        [
+                            {q:"AI से क्या नहीं पूछें?",options:["निजी जानकारी","मौसम","गाना","चुटकुला"],correct:0,exp:"निजी जानकारी।"},
+                            {q:"कहानी सुनाने में AI?",options:["मदद करती","कुछ नहीं","नुकसान","पता नहीं"],correct:0,exp:"मदद करती।"},
+                            {q:"AI से गणित पूछें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"AI से समय पूछें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"₹5 बचाएं 4 दिन?",options:["₹20","₹15","₹10","₹25"],correct:0,exp:"20।"}
+                        ],
+                        [
+                            {q:"AI से 5 सवाल पूछें?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"AI से कविता?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"AI से चुटकुला?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"AI किसकी तरह सोचती?",options:["इंसान","जानवर","पेड़","पत्थर"],correct:0,exp:"इंसान की तरह।"},
+                            {q:"₹3 बचाएं 5 दिन?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"}
+                        ],
+                        [
+                            {q:"सप्ताह में क्या सीखा?",options:["AI से बात","कुछ नहीं","सिर्फ गेम","सिर्फ गाना"],correct:0,exp:"AI से बात।"},
+                            {q:"AI के 3 फायदे?",options:["तेज़, मदद, आसान","धीमा, मुश्किल","कुछ नहीं","नुकसान"],correct:0,exp:"तेज़, मदद, आसान।"},
+                            {q:"₹1+₹2+₹5 = ?",options:["₹8","₹7","₹6","₹10"],correct:0,exp:"8।"},
+                            {q:"AI से कहानी?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"AI से गाना?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"}
+                        ]
+                    ]
+                },
+                3: { // फाइनेंस
+                    title: "💰 Level 2 - नोट और सिक्के",
+                    lessons: [
+                        {title:"नोट पहचानें", desc:"₹10 से ₹2000", youtube:"https://www.youtube.com/results?search_query=भारतीय+नोट+बच्चों+हिंदी", read:"भारतीय नोट:\n₹10 - गांधी जी\n₹20 - एलोरा\n₹50 - हंपी\n₹100 - रानी की वाव\n₹200 - सांची\n₹500 - लाल किला\n₹2000 - मंगलयान\n\nसब पर गांधी जी!"},
+                        {title:"सिक्के पहचानें", desc:"₹1, ₹2, ₹5, ₹10", youtube:"https://www.youtube.com/results?search_query=भारतीय+सिक्के+बच्चों+हिंदी", read:"सिक्के:\n₹1 - छोटा\n₹2 - थोड़ा बड़ा\n₹5 - बड़ा\n₹10 - सबसे बड़ा\n\nसिक्कों से छोटी चीज़ें खरीदें।"},
+                        {title:"पैसे की कीमत", desc:"क्या कितने का", youtube:"https://www.youtube.com/results?search_query=पैसे+की+कीमत+बच्चों+हिंदी", read:"₹5 = 1 चॉकलेट\n₹10 = 1 कॉपी\n₹20 = 1 पेन\n₹50 = 1 छोटा खिलौना\n₹100 = 1 बड़ी किताब\n\nहर चीज़ की कीमत होती है।"}
+                    ],
+                    tasksPool: [
+                        ["₹10 का नोट पहचानें","₹1 का सिक्का","₹5 बचाएं","₹5 की चीज़ बताएं"],
+                        ["₹20 का नोट","₹2 का सिक्का","₹10 बचाएं","₹10 की चीज़"],
+                        ["₹50 का नोट","₹5 का सिक्का","₹8 बचाएं","₹20 की चीज़"],
+                        ["₹100 का नोट","₹10 का सिक्का","₹5 बचाएं","₹50 की चीज़"],
+                        ["₹200 का नोट","सिक्कों से जोड़ें","₹10 बचाएं","₹100 की चीज़"],
+                        ["₹500 का नोट","सिक्कों से घटाएं","₹5 बचाएं","नोटों के रंग"],
+                        ["₹2000 का नोट","सभी सिक्के","बचत जोड़ें","सब दोहराएं"]
+                    ],
+                    quizPool: [
+                        [
+                            {q:"₹10 के नोट पर कौन?",options:["गांधी जी","नेहरू","टैगोर","पटेल"],correct:0,exp:"गांधी जी।"},
+                            {q:"₹1 का सिक्का कैसा?",options:["छोटा","बड़ा","मध्यम","कोई नहीं"],correct:0,exp:"छोटा।"},
+                            {q:"₹5 में क्या खरीदें?",options:["चॉकलेट","कार","फ्रिज","TV"],correct:0,exp:"चॉकलेट।"},
+                            {q:"सबसे बड़ा सिक्का?",options:["₹10","₹5","₹2","₹1"],correct:0,exp:"₹10।"},
+                            {q:"₹5 + ₹5 = ?",options:["₹10","₹5","₹15","₹20"],correct:0,exp:"10।"}
+                        ],
+                        [
+                            {q:"₹20 के नोट पर?",options:["एलोरा","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"एलोरा।"},
+                            {q:"₹2 का सिक्का?",options:["थोड़ा बड़ा","छोटा","बहुत बड़ा","कोई नहीं"],correct:0,exp:"थोड़ा बड़ा।"},
+                            {q:"₹20 में क्या?",options:["1 पेन","1 कार","1 फ्रिज","1 TV"],correct:0,exp:"1 पेन।"},
+                            {q:"₹10 में कितने ₹5?",options:["2","3","4","5"],correct:0,exp:"2।"},
+                            {q:"₹10 - ₹5 = ?",options:["₹5","₹10","₹15","₹20"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"₹50 के नोट पर?",options:["हंपी","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"हंपी।"},
+                            {q:"₹5 का सिक्का?",options:["बड़ा","छोटा","मध्यम","कोई नहीं"],correct:0,exp:"बड़ा।"},
+                            {q:"₹50 में क्या?",options:["छोटा खिलौना","कार","फ्रिज","TV"],correct:0,exp:"छोटा खिलौना।"},
+                            {q:"₹50 में कितने ₹10?",options:["5","4","3","10"],correct:0,exp:"5।"},
+                            {q:"₹2 + ₹3 = ?",options:["₹5","₹6","₹4","₹7"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"₹100 के नोट पर?",options:["रानी की वाव","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"रानी की वाव।"},
+                            {q:"₹10 का सिक्का?",options:["सबसे बड़ा","छोटा","मध्यम","कोई नहीं"],correct:0,exp:"सबसे बड़ा।"},
+                            {q:"₹100 में क्या?",options:["बड़ी किताब","कार","फ्रिज","TV"],correct:0,exp:"बड़ी किताब।"},
+                            {q:"₹100 में कितने ₹50?",options:["2","3","4","5"],correct:0,exp:"2।"},
+                            {q:"₹5 बचाएं 3 दिन?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"}
+                        ],
+                        [
+                            {q:"₹200 के नोट पर?",options:["सांची","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"सांची।"},
+                            {q:"नोटों का रंग?",options:["अलग-अलग","सिर्फ लाल","सिर्फ नीला","सिर्फ हरा"],correct:0,exp:"अलग-अलग।"},
+                            {q:"₹200 में कितने ₹100?",options:["2","3","4","5"],correct:0,exp:"2।"},
+                            {q:"₹10+₹10 = ?",options:["₹20","₹15","₹25","₹30"],correct:0,exp:"20।"},
+                            {q:"₹5 बचाएं 4 दिन?",options:["₹20","₹15","₹10","₹25"],correct:0,exp:"20।"}
+                        ],
+                        [
+                            {q:"₹500 के नोट पर?",options:["लाल किला","ताजमहल","सांची","मंगलयान"],correct:0,exp:"लाल किला।"},
+                            {q:"₹500 में कितने ₹100?",options:["5","4","3","10"],correct:0,exp:"5।"},
+                            {q:"₹20 - ₹5 = ?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"},
+                            {q:"₹10 बचाएं 2 दिन?",options:["₹20","₹15","₹10","₹25"],correct:0,exp:"20।"},
+                            {q:"सिक्कों से क्या?",options:["छोटी खरीदारी","बड़ी खरीदारी","कुछ नहीं","सिर्फ बचत"],correct:0,exp:"छोटी खरीदारी।"}
+                        ],
+                        [
+                            {q:"₹2000 के नोट पर?",options:["मंगलयान","ताजमहल","लाल किला","सांची"],correct:0,exp:"मंगलयान।"},
+                            {q:"सबसे बड़ा नोट?",options:["₹2000","₹500","₹100","₹50"],correct:0,exp:"₹2000।"},
+                            {q:"₹1+₹2+₹5 = ?",options:["₹8","₹7","₹6","₹10"],correct:0,exp:"8।"},
+                            {q:"कितने प्रकार के नोट?",options:["7","3","5","10"],correct:0,exp:"7 प्रकार।"},
+                            {q:"कितने प्रकार के सिक्के?",options:["4","2","3","5"],correct:0,exp:"4 (₹1, ₹2, ₹5, ₹10)।"}
+                        ]
+                    ]
+                },
+                4: { // रिवीजन
+                    title: "🔄 Level 2 - रिवीजन",
+                    lessons: [
+                        {title:"स्क्रीन, स्पीकर, CPU", desc:"कंप्यूटर के 3 भाग", youtube:"https://www.youtube.com/results?search_query=computer+parts+revision+kids+hindi", read:"कंप्यूटर के 3 भाग:\n🖥️ स्क्रीन (मॉनिटर)\n🔊 स्पीकर\n🖲️ CPU\n\nसब याद करें!"},
+                        {title:"AI से बात", desc:"बोलकर/लिखकर", youtube:"https://www.youtube.com/results?search_query=AI+talk+revision+kids+hindi", read:"AI से बात:\n🗣️ बोलकर\n⌨️ लिखकर\n\nSiri, Alexa, Google\n\nसब AI हैं!"},
+                        {title:"नोट और सिक्के", desc:"सब पहचानें", youtube:"https://www.youtube.com/results?search_query=money+revision+kids+hindi", read:"नोट: ₹10 से ₹2000\nसिक्के: ₹1 से ₹10\n\nसब पर गांधी जी!\n\nहर चीज़ की कीमत होती है।"}
+                    ],
+                    tasksPool: [
+                        ["3 कंप्यूटर भाग","AI से 1 सवाल","₹5 बचाएं","₹10 का नोट"],
+                        ["स्पीकर से गाना","AI से कहानी","₹10 बचाएं","₹5 का सिक्का"],
+                        ["CPU का काम","AI से चुटकुला","₹8 बचाएं","₹20 का नोट"],
+                        ["मॉनिटर पर देखें","AI से गणित","₹5 बचाएं","₹2 का सिक्का"],
+                        ["तीनों दोहराएं","AI से मौसम","₹10 बचाएं","₹50 का नोट"],
+                        ["3 भाग बोलें","AI से 3 सवाल","₹5 बचाएं","₹10 का सिक्का"],
+                        ["सब याद करें","AI से गाना","बचत जोड़ें","सब नोट/सिक्के"]
+                    ],
+                    quizPool: [
+                        [
+                            {q:"स्क्रीन किसे कहते?",options:["मॉनिटर","स्पीकर","CPU","माउस"],correct:0,exp:"मॉनिटर।"},
+                            {q:"AI से कैसे बात?",options:["बोलकर","देखकर","सूंघकर","छूकर"],correct:0,exp:"बोलकर।"},
+                            {q:"₹10 का नोट पर?",options:["गांधी जी","नेहरू","टैगोर","पटेल"],correct:0,exp:"गांधी जी।"},
+                            {q:"स्पीकर से क्या?",options:["आवाज़","तस्वीर","टाइप","क्लिक"],correct:0,exp:"आवाज़।"},
+                            {q:"₹5 + ₹5 = ?",options:["₹10","₹5","₹15","₹20"],correct:0,exp:"10।"}
+                        ],
+                        [
+                            {q:"CPU क्या?",options:["दिमाग","स्क्रीन","आवाज़","माउस"],correct:0,exp:"दिमाग।"},
+                            {q:"Siri किसकी?",options:["Apple","Google","Amazon","Microsoft"],correct:0,exp:"Apple।"},
+                            {q:"₹1 का सिक्का?",options:["छोटा","बड़ा","मध्यम","कोई नहीं"],correct:0,exp:"छोटा।"},
+                            {q:"मॉनिटर पर?",options:["वीडियो, चित्र","सिर्फ आवाज़","कुछ नहीं","सिर्फ टाइप"],correct:0,exp:"वीडियो, चित्र।"},
+                            {q:"₹10 - ₹5 = ?",options:["₹5","₹10","₹15","₹20"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"Alexa किसकी?",options:["Amazon","Google","Apple","Microsoft"],correct:0,exp:"Amazon।"},
+                            {q:"₹5 का सिक्का?",options:["बड़ा","छोटा","मध्यम","कोई नहीं"],correct:0,exp:"बड़ा।"},
+                            {q:"₹20 का नोट पर?",options:["एलोरा","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"एलोरा।"},
+                            {q:"CPU के बिना?",options:["नहीं चलेगा","चलेगा","कुछ नहीं","पता नहीं"],correct:0,exp:"नहीं चलेगा।"},
+                            {q:"₹2 + ₹3 = ?",options:["₹5","₹6","₹4","₹7"],correct:0,exp:"5।"}
+                        ],
+                        [
+                            {q:"₹50 का नोट?",options:["हंपी","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"हंपी।"},
+                            {q:"AI से क्या पूछें?",options:["मौसम","सिर्फ गाना","कुछ नहीं","सिर्फ खेल"],correct:0,exp:"मौसम भी।"},
+                            {q:"₹10 का सिक्का?",options:["सबसे बड़ा","छोटा","मध्यम","कोई नहीं"],correct:0,exp:"सबसे बड़ा।"},
+                            {q:"स्पीकर कहाँ?",options:["कंप्यूटर के साथ","अलमारी में","रसोई में","बाहर"],correct:0,exp:"कंप्यूटर के साथ।"},
+                            {q:"₹5 बचाएं 3 दिन?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"}
+                        ],
+                        [
+                            {q:"₹100 का नोट?",options:["रानी की वाव","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"रानी की वाव।"},
+                            {q:"AI से कहानी?",options:["हाँ","नहीं","कभी नहीं","पता नहीं"],correct:0,exp:"हाँ।"},
+                            {q:"₹200 का नोट?",options:["सांची","ताजमहल","लाल किला","मंगलयान"],correct:0,exp:"सांची।"},
+                            {q:"मॉनिटर का रंग?",options:["कोई भी","सिर्फ काला","सिर्फ सफेद","सिर्फ नीला"],correct:0,exp:"कोई भी।"},
+                            {q:"₹5 बचाएं 4 दिन?",options:["₹20","₹15","₹10","₹25"],correct:0,exp:"20।"}
+                        ],
+                        [
+                            {q:"₹500 का नोट?",options:["लाल किला","ताजमहल","सांची","मंगलयान"],correct:0,exp:"लाल किला।"},
+                            {q:"₹500 में ₹100?",options:["5","4","3","10"],correct:0,exp:"5।"},
+                            {q:"₹20 - ₹5 = ?",options:["₹15","₹10","₹20","₹25"],correct:0,exp:"15।"},
+                            {q:"₹10 बचाएं 2 दिन?",options:["₹20","₹15","₹10","₹25"],correct:0,exp:"20।"},
+                            {q:"सबसे बड़ा सिक्का?",options:["₹10","₹5","₹2","₹1"],correct:0,exp:"₹10।"}
+                        ],
+                        [
+                            {q:"₹2000 का नोट?",options:["मंगलयान","ताजमहल","लाल किला","सांची"],correct:0,exp:"मंगलयान।"},
+                            {q:"सबसे बड़ा नोट?",options:["₹2000","₹500","₹100","₹50"],correct:0,exp:"₹2000।"},
+                            {q:"₹1+₹2+₹5 = ?",options:["₹8","₹7","₹6","₹10"],correct:0,exp:"8।"},
+                            {q:"कितने प्रकार के नोट?",options:["7","3","5","10"],correct:0,exp:"7।"},
+                            {q:"कितने सिक्के?",options:["4","2","3","5"],correct:0,exp:"4 (₹1, ₹2, ₹5, ₹10)।"}
+                        ]
+                    ]
+                }
             }
-            // LEVEL 2, 3, 4 अगले संदेश में जोड़ेंगे
         }
     },
 
@@ -773,7 +1042,6 @@ const curriculum = {
                     ]
                 }
             }
-            // LEVEL 2, 3, 4 अगले संदेश में
         }
     }
 };
@@ -784,7 +1052,9 @@ const curriculum = {
 function openClass(cls) {
     currentClass = cls;
     const info = getCurrentWeekInfo();
-    currentLevel = info.level;
+    // बग फिक्स: अगर सिस्टम का लेवल 2 है लेकिन डेटा 2 का नहीं है, तो उसे 1 पर सेट करें
+    const targetLevel = classData.levels[info.level] ? info.level : 1;
+    currentLevel = targetLevel; 
     todayProgress = { tasks: 0, quizCorrect: 0, quizTotal: 0 };
     document.getElementById('page-home').classList.remove('active');
     document.getElementById('page-class').classList.add('active');
@@ -916,11 +1186,12 @@ function renderLevelSelector() {
     const classData = curriculum[currentClass];
     for (let i = 1; i <= 13; i++) {
         const btn = document.createElement('button');
+        // बटन का रंग: अगर चालू है तो हरा, अगर डेटा है तो नीला, वरना ग्रे
         btn.className = `level-btn py-2 px-1 text-xs font-bold rounded-lg ${i === currentLevel ? 'level-active' : (classData.levels[i] ? 'bg-slate-100 text-slate-700' : 'bg-slate-50 text-slate-400')}`;
         btn.innerText = `L${i}`;
         btn.onclick = () => {
             if (!classData.levels[i]) {
-                alert(`Level ${i} का कंटेंट जल्द ही जोड़ा जाएगा।\n\nअभी Level 1 उपलब्ध है।\n\nPart 2 में Level 2-4 जोड़ेंगे।`);
+                alert(`Level ${i} का कंटेंट जल्द ही जोड़ा जाएगा।\n\nअभी Level 1 और 2 उपलब्ध हैं।\n\nसर आगे के लेवल जोड़ते जाएंगे।`);
                 return;
             }
             currentLevel = i;
@@ -999,7 +1270,7 @@ function showResult(total) {
     box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-/* GEMINI */
+/* GEMINI (फिक्स किया गया मॉडल) */
 async function sendToGemini() {
     const apiKey = document.getElementById('gemini-key').value.trim();
     const userInput = document.getElementById('user-input').value.trim();
@@ -1015,6 +1286,7 @@ async function sendToGemini() {
     chat.innerHTML += `<div id="${loadId}" class="bg-slate-200 text-slate-700 p-2 rounded-lg text-xs mr-auto max-w-[85%] animate-pulse">🤖 सोच रहा है...</div>`;
 
     try {
+        // यहाँ मॉडल को gemini-2.0-flash कर दिया गया है
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1039,4 +1311,4 @@ function escapeHtml(text) {
 }
 </script>
 </body>
-</html>
+    </html>
