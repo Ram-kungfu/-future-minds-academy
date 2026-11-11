@@ -9,7 +9,13 @@ app.use(express.json({ limit: '1mb' }));
 // Serve static files from root folder (index.html is here)
 app.use(express.static(__dirname));
 
-// In-memory progress store (per-user would use sessions/DB in production)
+// ====== Render से Gemini key भेजने वाला endpoint ======
+// Environment variable GEMINI_API_KEY से key पढ़कर frontend को भेजता है
+app.get('/api/get-key', (req, res) => {
+    res.json({ key: process.env.GEMINI_API_KEY || '' });
+});
+
+// In-memory progress store (production में DB/session उपयोग करें)
 let userProgress = {
     totalPoints: 0,
     completedTasks: {},
@@ -57,6 +63,7 @@ app.post('/api/progress/reset', (req, res) => {
 });
 
 // SPA fallback - serve index.html from root
+// ⚠️ यह हमेशा सबसे आखिरी route होना चाहिए
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
