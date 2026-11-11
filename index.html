@@ -1649,13 +1649,15 @@ async function loadProgress() {
 }
 
 /* ---------- GEMINI AI ---------- */
-
 async function sendToGemini() {
-    const apiKey = document.getElementById('gemini-key').value.trim();
+    let apiKey = document.getElementById('gemini-key').value.trim();
+    if (!apiKey) {
+        apiKey = document.getElementById('teacher-key')?.value || '';
+    }
     const userInput = document.getElementById('user-input').value.trim();
     const chat = document.getElementById('chat-messages');
 
-    if (!apiKey) { alert("⚠️ पहले Gemini API Key डालें / Enter Gemini API Key first"); return; }
+    if (!apiKey) { alert("⚠️ पहले Gemini API Key डालें!"); return; }
     if (!userInput) return;
 
     chat.innerHTML += `<div class="bg-indigo-600 text-white p-2 rounded-lg text-xs ml-auto max-w-[85%] fade-in"><b>आप:</b> ${escapeHtml(userInput)}</div>`;
@@ -1674,20 +1676,30 @@ async function sendToGemini() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{
-                        text: `You are a friendly AI teacher for children (ages 5-20) in India, teaching financial freedom, AI, coding, computer skills, and freelancing. Always answer in very simple Hindi (with some English words in brackets for technical terms). Keep responses short (under 150 words), encouraging, and use emojis. Question: ${userInput}`
+                        text: `You are a friendly AI teacher for children (ages 5-20) in India. Always answer in very simple Hindi. Keep responses short, encouraging, and use emojis. Question: ${userInput}`
                     }] }]
                 })
             }
         );
 
         const data = await response.json();
-        document.getElementById(loadId).remove();
-        if (data.error) throw new Error(data.error.message);
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
+        
+        const loadElem = document.getElementById(loadId);
+        if (loadElem) loadElem.remove();
+
+        // अगर Google ने कोई एरर दिया है (जैसे API की खत्म होना)
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "कोई जवाब नहीं मिला।";
         chat.innerHTML += `<div class="bg-emerald-50 text-emerald-900 p-2 rounded-lg text-xs mr-auto max-w-[85%] border border-emerald-200 fade-in whitespace-pre-wrap"><b>🤖 AI:</b> ${escapeHtml(reply)}</div>`;
+    
     } catch (error) {
-        document.getElementById(loadId).remove();
-        chat.innerHTML += `<div class="bg-red-50 text-red-900 p-2 rounded-lg text-xs mr-auto max-w-[85%]">⚠️ Error: ${escapeHtml(error.message || 'API/Network issue')}</div>`;
+        const loadElem = document.getElementById(loadId);
+        if (loadElem) loadElem.remove();
+        // अब एरर साफ-साफ स्क्रीन पर लाल रंग में दिखेगा
+        chat.innerHTML += `<div class="bg-red-100 text-red-900 p-2 rounded-lg text-xs mr-auto max-w-[85%] border border-red-300"><b>⚠️ ध्यान दें:</b> ${escapeHtml(error.message || 'इंटरनेट या API की में समस्या है')}</div>`;
     }
     chat.scrollTop = chat.scrollHeight;
 }
