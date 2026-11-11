@@ -178,6 +178,7 @@
 <footer class="bg-slate-800 text-slate-300 text-center py-3 text-xs">
     <p>Future Minds Academy © 2026 | Made with ❤️</p>
 </footer>
+<script src="data-level4.js"></script>    
     
 
 <script>
@@ -1902,6 +1903,17 @@ const curriculum = {
         }
     }
 };
+
+if (window.curriculumData4) {
+    // कक्षा 1 के लिए Level 4 जोड़ें
+    if (window.curriculumData4[1] && window.curriculumData4[1].levels) {
+        Object.assign(curriculum[1].levels, window.curriculumData4[1].levels);
+    }
+    // कक्षा 5 के लिए Level 4 जोड़ें
+    if (window.curriculumData4[5] && window.curriculumData4[5].levels) {
+        Object.assign(curriculum[5].levels, window.curriculumData4[5].levels);
+    }
+}
 
 /* ============================================
    NAVIGATION
