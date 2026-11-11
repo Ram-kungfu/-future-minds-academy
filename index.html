@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Future Minds Hub | बच्चों के लिए AI, कोडिंग और वित्तीय स्वतंत्रता</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    body { font-family: 'Segoe UI', 'Noto Sans Devanagari', Tahoma, sans-serif; }
+    .fade-in { animation: fadeIn 0.4s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .pulse-glow { animation: pulseGlow 2s infinite; }
+    @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.5); } 50% { box-shadow: 0 0 0 8px rgba(99,102,241,0); } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+    .tab-active { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; box-shadow: 0 4px 12px rgba(79,70,229,0.3); }
+    .lesson-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+</style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-indigo-50 text-slate-800 min-h-screen flex flex-col">
+
+<!-- HEADER -->
+<header class="bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white shadow-lg sticky top-0 z-40">
+    <div class="container mx-auto px-4 py-3 max-w-7xl">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="text-center md:text-left">
+                <h1 class="text-xl md:text-2xl font-extrabold flex items-center justify-center md:justify-start gap-2">
+                    🚀 Future Minds Hub
+                </h1>
+                <p class="text-xs text-indigo-200 mt-0.5">AI • Financial Freedom • Coding • Freelancing (Ages 5-20)</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="bg-yellow-400 text-slate-900 px-4 py-2 rounded-xl font-extrabold shadow-lg flex items-center gap-2 text-sm">
+                    <span>🏆</span>
+                    <span id="score-display" class="text-xl">0</span>
+                    <span class="hidden sm:inline">अंक / Points</span>
+                </div>
+                <button onclick="toggleLanguage()" id="lang-toggle" class="bg-white/20 hover:bg-white/30 px-3 py-2 rounded-xl text-xs font-bold transition border border-white/30">
+                    🌐 EN
+                </button>
+            </div>
+        </div>
+
+        <!-- TRACK SWITCHER -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+            <button onclick="switchTrack(1)" id="btn-track1" class="py-3 px-4 bg-white text-indigo-800 text-sm font-bold rounded-xl shadow-lg border-2 border-yellow-400 transition transform hover:scale-[1.02]">
+                <div class="flex items-center gap-2 justify-center">
+                    <span class="text-2xl">👶</span>
+                    <div class="text-left">
+                        <div class="font-extrabold">भाग 1: उम्र 5-10 वर्ष</div>
+                        <div class="text-[10px] text-indigo-600">कक्षा 1 से 5 | Class 1-5</div>
+                    </div>
+                </div>
+            </button>
+            <button onclick="switchTrack(2)" id="btn-track2" class="py-3 px-4 bg-indigo-900/40 hover:bg-indigo-900/60 text-white text-sm font-bold rounded-xl border-2 border-indigo-400/50 transition transform hover:scale-[1.02]">
+                <div class="flex items-center gap-2 justify-center">
+                    <span class="text-2xl">👦</span>
+                    <div class="text-left">
+                        <div class="font-extrabold">भाग 2: उम्र 10-20 वर्ष</div>
+                        <div class="text-[10px] text-indigo-200">कक्षा 6 से 12 | Class 6-12</div>
+                    </div>
+                </div>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- MAIN -->
+<main class="container mx-auto px-3 md:px-4 py-4 flex-grow max-w-7xl">
+
+    <!-- BANNER -->
+    <div id="track-banner" class="bg-gradient-to-r from-indigo-100 to-purple-100 border-l-4 border-indigo-600 p-4 mb-4 rounded-r-xl shadow-sm">
+        <h2 id="banner-title" class="font-extrabold text-indigo-900 text-base md:text-lg"></h2>
+        <p id="banner-desc" class="text-xs md:text-sm text-indigo-700 mt-1"></p>
+    </div>
+
+    <!-- CLASS TABS -->
+    <div class="mb-4">
+        <h3 class="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider" data-i18n="select_class">📚 अपनी कक्षा चुनें / Select Your Class</h3>
+        <div id="class-tabs" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- CONTENT GRID -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- LEFT: LESSONS, TASKS, QUIZ -->
+        <div class="lg:col-span-2 space-y-4">
+
+            <!-- LESSONS SECTION -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl shadow-md border border-slate-200">
+                <h3 class="text-base font-extrabold text-slate-900 flex items-center gap-2 mb-3 pb-2 border-b-2 border-indigo-100">
+                    <span class="text-xl">📖</span>
+                    <span data-i18n="lessons">सीखने के पाठ / Lessons</span>
+                </h3>
+                <div id="lessons-container" class="space-y-3"></div>
+            </div>
+
+            <!-- TASKS -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl shadow-md border border-emerald-200">
+                <h3 class="text-base font-extrabold text-emerald-900 flex items-center gap-2 mb-3 pb-2 border-b-2 border-emerald-100">
+                    <span class="text-xl">🎯</span>
+                    <span data-i18n="tasks">आज के जरूरी टास्क / Daily Tasks</span>
+                    <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full ml-auto">+10 pts each</span>
+                </h3>
+                <div id="tasks-container" class="space-y-2"></div>
+            </div>
+
+            <!-- QUIZ -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl shadow-md border border-purple-200">
+                <h3 class="text-base font-extrabold text-purple-900 flex items-center gap-2 mb-1 pb-2 border-b-2 border-purple-100">
+                    <span class="text-xl">📝</span>
+                    <span data-i18n="quiz">प्रैक्टिस क्विज़ / Practice Quiz</span>
+                    <span class="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full ml-auto">+20 pts each</span>
+                </h3>
+                <p class="text-xs text-slate-500 mb-3">उत्तर पर क्लिक करें / Click to answer</p>
+                <div id="quiz-container" class="space-y-4"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT: AI CHAT -->
+        <div class="bg-white rounded-2xl shadow-md border border-indigo-200 flex flex-col h-[600px] lg:sticky lg:top-44">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3 rounded-t-2xl">
+                <h3 class="text-sm font-extrabold flex items-center gap-2">🤖 Gemini AI मास्टरजी</h3>
+                <p class="text-[10px] text-indigo-100 mt-0.5">कोई भी सवाल पूछें / Ask anything</p>
+            </div>
+
+            <div class="p-2 bg-slate-50 border-b">
+                <input type="password" id="gemini-key" placeholder="Gemini API Key यहाँ डालें"
+                    class="w-full text-xs p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <p class="text-[9px] text-slate-500 mt-1">
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-600 underline">Free key पाएं →</a>
+                </p>
+            </div>
+
+            <div id="chat-messages" class="flex-grow overflow-y-auto bg-slate-50 p-3 space-y-2 text-sm"></div>
+
+            <div class="p-2 border-t bg-white rounded-b-2xl">
+                <div class="flex gap-2">
+                    <input type="text" id="user-input" placeholder="सवाल पूछें..."
+                        class="flex-grow text-xs p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        onkeypress="if(event.key === 'Enter') sendToGemini()">
+                    <button onclick="sendToGemini()" id="send-btn"
+                        class="bg-indigo-600 text-white px-3 py-2 text-xs font-bold rounded-lg hover:bg-indigo-700 transition">
+                        भेजें
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer class="bg-slate-800 text-slate-300 text-center py-3 text-xs mt-6">
+    <p>Future Minds Hub © 2026 | Made with ❤️ for Young Learners</p>
+</footer>
+
+<script>
+/* ============================================================
+   FUTURE MINDS HUB - APPLICATION LOGIC
+   ============================================================ */
+
+let currentTrack = 1;
+let currentClass = 1;
+let currentLang = 'hi';
+let userTotalPoints = 0;
+
+/* ---------- LANGUAGE HELPER ---------- */
+function t(hi, en) { return currentLang === 'hi' ? hi : en; }
+
+function toggleLanguage() {
+    currentLang = currentLang === 'hi' ? 'en' : 'hi';
+    document.getElementById('lang-toggle').innerText = currentLang === 'hi' ? '🌐 EN' : '🌐 हिं';
+    renderClassTabs();
+    renderContent();
+    updateBanner();
+}
+
+/* ---------- CURRICULUM DATABASE ---------- */
+/* Each lesson: { title: {hi,en}, desc: {hi,en}, youtube, read: {hi,en} } */
+
+const curriculum = {
+    1: {
+        name: { hi: "भाग 1: प्राथमिक स्तर (उम्र 5-10 | कक्षा 1-5)", en: "Part 1: Primary Level (Age 5-10 | Class 1-5)" },
+        desc: { hi: "खेल-खेल में पैसों की बचत, कंप्यूटर के अंग, AI और कोडिंग की बुनियादी समझ सीखें।",
+                en: "Learn saving money, computer parts, AI basics, and coding in a fun way." },
+        classes: {
+            1: {
+                title: { hi: "कक्षा 1: पैसों की पहचान और गुल्लक", en: "Class 1: Money Recognition & Piggy Bank" },
+                lessons: [
+                    { title: {hi:"सिक्के और नोट पहचानें", en:"Recognize Coins & Notes"},
+                      desc: {hi:"₹1, ₹2, ₹5, ₹10, ₹20, ₹50, ₹100, ₹500 और ₹2000 के नोट।", en:"Learn Indian currency notes and coins."},
+                      youtube: "https://www.youtube.com/results?search_query=indian+currency+notes+for+kids+hindi",
+                      read: {hi:"भारत में पैसे को 'रुपया' कहते हैं। हम रोज़ कुछ चीज़ें खरीदने के लिए पैसे का उपयोग करते हैं। सिक्के (Coins) और नोट (Notes) पैसे के रूप हैं। जब हमें कोई चीज़ खरीदनी होती है, तो हम दुकानदार को पैसे देते हैं।\n\nगुल्लक (Piggy Bank) एक छोटा बक्सा है जिसमें हम अपने बचे हुए पैसे जमा करते हैं। रोज़ थोड़ा-थोड़ा पैसा डालने से महीने के अंत में बड़ी रकम बन जाती है!",
+                            en:"In India, money is called 'Rupee'. We use money daily to buy things. Coins and Notes are forms of money. When we buy something, we give money to the shopkeeper.\n\nA piggy bank is a small box where we save leftover money. Saving a little every day creates a big amount by the end of the month!"} },
+                    { title: {hi:"बचत क्या है?", en:"What is Saving?"},
+                      desc: {hi:"बचत का मतलब है - जो पैसा आज नहीं चाहिए, उसे भविष्य के लिए रखना।", en:"Saving means keeping today's spare money for the future."},
+                      youtube: "https://www.youtube.com/results?search_query=savings+for+kids+hindi",
+                      read: {hi:"बचत (Saving) का मतलब है - जो पैसा अभी जरूरी नहीं है, उसे भविष्य के लिए रख लेना। जब हम बचत करते हैं तो बड़ी चीज़ें खरीद सकते हैं और मुश्किल समय में काम आता है।",
+                            en:"Saving means keeping money that is not needed now for future use. When we save, we can buy bigger things later and it helps in tough times."} }
+                ],
+                tasks: [
+                    { hi: "अपनी गुल्लक में आज ₹5 जमा करें और गिनें कितने पैसे हो गए।", en: "Save ₹5 in your piggy bank today and count the total." },
+                    { hi: "मम्मी-पापा से पूछें - घर में पैसा कहाँ से आता है?", en: "Ask your parents - where does money come from?" },
+                    { hi: "₹1, ₹2, ₹5 के सिक्कों को पहचानें।", en: "Identify ₹1, ₹2, ₹5 coins." }
+                ],
+                quiz: [
+                    { q: {hi:"हम अपनी बची हुई रेज़गारी कहाँ जमा करते हैं?", en:"Where do we save our leftover coins?"},
+                      options: [{hi:"कूड़ेदान में", en:"In dustbin"}, {hi:"गुल्लक में", en:"In piggy bank"}, {hi:"खिलौनों के डिब्बे में", en:"In toy box"}],
+                      correct: 1,
+                      exp: {hi:"गुल्लक में पैसे जमा करने से बचत की अच्छी आदत बनती है!", en:"Saving in a piggy bank builds a good saving habit!"} },
+                    { q: {hi:"भारत में पैसे को क्या कहते हैं?", en:"What is money called in India?"},
+                      options: [{hi:"डॉलर", en:"Dollar"}, {hi:"रुपया", en:"Rupee"}, {hi:"येन", en:"Yen"}],
+                      correct: 1,
+                      exp: {hi:"भारत की करेंसी 'भारतीय रुपया' है।", en:"India's currency is the Indian Rupee."} }
+                ]
+            },
+            2: {
+                title: { hi: "कक्षा 2: बचत की आदत और कंप्यूटर", en: "Class 2: Saving Habit & Computer Basics" },
+                lessons: [
+                    { title: {hi:"कंप्यूटर के अंग", en:"Parts of a Computer"},
+                      desc: {hi:"मॉनिटर, कीबोर्ड, माउस, CPU - सब कुछ जानें।", en:"Learn Monitor, Keyboard, Mouse, CPU."},
+                      youtube: "https://www.youtube.com/results?search_query=parts+of+computer+for+kids+hindi",
+                      read: {hi:"कंप्यूटर एक मशीन है जो हमारी मदद करती है। इसके मुख्य भाग हैं:\n\n🖥️ मॉनिटर (Monitor) - स्क्रीन जिस पर हम देखते हैं\n⌨️ कीबोर्ड (Keyboard) - टाइप करने के लिए\n🖱️ माउस (Mouse) - कर्सर घुमाने और क्लिक करने के लिए\n🖲️ CPU (सेंट्रल प्रोसेसिंग यूनिट) - कंप्यूटर का दिमाग\n🔊 स्पीकर - आवाज़ सुनने के लिए",
+                            en:"A computer is a machine that helps us. Its main parts:\n\n🖥️ Monitor - Screen we look at\n⌨️ Keyboard - For typing\n🖱️ Mouse - To move cursor and click\n🖲️ CPU - The brain of computer\n🔊 Speaker - To hear sound"} },
+                    { title: {hi:"माउस और कीबोर्ड का उपयोग", en:"Using Mouse & Keyboard"},
+                      desc: {hi:"क्लिक, डबल क्लिक, टाइपिंग का अभ्यास करें।", en:"Practice click, double click, typing."},
+                      youtube: "https://www.youtube.com/results?search_query=mouse+keyboard+typing+for+kids+hindi",
+                      read: {hi:"माउस से हम कंप्यूटर में चीज़ें चुनते हैं। बाएँ बटन से क्लिक करते हैं। कीबोर्ड से हम अक्षर टाइप करते हैं। अपना नाम टाइप करके देखें!",
+                            en:"We select things on computer with mouse. Left button is used to click. Keyboard is used to type letters. Try typing your name!"} }
+                ],
+                tasks: [
+                    { hi: "आज ₹10 बचाएं - कोई फालतू चीज़ न खरीदें।", en: "Save ₹10 today - don't buy anything unnecessary." },
+                    { hi: "कीबोर्ड पर अपना पूरा नाम टाइप करें।", en: "Type your full name on the keyboard." },
+                    { hi: "माउस से कोई गेम खेलें और क्लिक का अभ्यास करें।", en: "Play a mouse game to practice clicking." }
+                ],
+                quiz: [
+                    { q: {hi:"कंप्यूटर का 'दिमाग' किसे कहते हैं?", en:"Which part is called the computer's 'brain'?"},
+                      options: [{hi:"मॉनिटर", en:"Monitor"}, {hi:"CPU", en:"CPU"}, {hi:"माउस", en:"Mouse"}],
+                      correct: 1,
+                      exp: {hi:"CPU (सेंट्रल प्रोसेसिंग यूनिट) कंप्यूटर का दिमाग है।", en:"CPU (Central Processing Unit) is the brain of the computer."} }
+                ]
+            },
+            3: {
+                title: { hi: "कक्षा 3: जरूरत बनाम फालतू खर्चा", en: "Class 3: Need vs Want" },
+                lessons: [
+                    { title: {hi:"जरूरत (Need) और इच्छा (Want)", en:"Need vs Want"},
+                      desc: {hi:"क्या खरीदना जरूरी है और क्या सिर्फ शौक है?", en:"What is essential vs just a desire?"},
+                      youtube: "https://www.youtube.com/results?search_query=needs+vs+wants+for+kids+hindi",
+                      read: {hi:"जरूरत (Need): जो चीज़ जीवन के लिए जरूरी है - जैसे खाना, पानी, कपड़े, पढ़ाई, दवाई।\n\nइच्छा (Want): जो चीज़ अच्छी लगती है पर जरूरी नहीं - जैसे नया खिलौना, वीडियो गेम, चॉकलेट।\n\nसमझदार इंसान पहले जरूरतें पूरी करता है, फिर इच्छाएँ!",
+                            en:"Need: Essential for life - food, water, clothes, education, medicine.\n\nWant: Nice to have but not essential - new toy, video game, chocolate.\n\nSmart people fulfill needs first, then wants!"} },
+                    { title: {hi:"MS Paint में ड्राइंग", en:"Drawing in MS Paint"},
+                      desc: {hi:"कंप्यूटर पर ड्राइंग करना सीखें।", en:"Learn to draw on computer."},
+                      youtube: "https://www.youtube.com/results?search_query=ms+paint+drawing+for+kids+hindi",
+                      read: {hi:"MS Paint एक कंप्यूटर प्रोग्राम है जिसमें हम ड्राइंग बना सकते हैं। ब्रश, पेंसिल, रंग भरने के टूल्स होते हैं। कोई घर या फूल बनाकर देखें!",
+                            en:"MS Paint is a computer program where we can draw. It has brush, pencil, fill tools. Try drawing a house or flower!"} }
+                ],
+                tasks: [
+                    { hi: "10 चीज़ों की सूची बनाएं - 5 जरूरत, 5 इच्छा।", en: "Make a list of 10 things - 5 needs, 5 wants." },
+                    { hi: "MS Paint में एक घर बनाएं।", en: "Draw a house in MS Paint." },
+                    { hi: "आज ₹20 की बचत करें।", en: "Save ₹20 today." }
+                ],
+                quiz: [
+                    { q: {hi:"इनमें से कौन 'जरूरत (Need)' है?", en:"Which of these is a 'Need'?"},
+                      options: [{hi:"महंगा खिलौना", en:"Expensive toy"}, {hi:"स्कूल की किताबें", en:"School books"}, {hi:"वीडियो गेम", en:"Video game"}],
+                      correct: 1,
+                      exp: {hi:"पढ़ाई की किताबें जरूरी हैं, खिलौने इच्छा हैं।", en:"School books are essential; toys are wants."} }
+                ]
+            },
+            4: {
+                title: { hi: "कक्षा 4: AI का परिचय", en: "Class 4: Introduction to AI" },
+                lessons: [
+                    { title: {hi:"AI क्या है?", en:"What is AI?"},
+                      desc: {hi:"आर्टिफिशियल इंटेलिजेंस - बुद्धिमान मशीनें।", en:"Artificial Intelligence - smart machines."},
+                      youtube: "https://www.youtube.com/results?search_query=what+is+AI+for+kids+hindi",
+                      read: {hi:"AI का मतलब है 'आर्टिफिशियल इंटेलिजेंस' यानी कृत्रिम बुद्धिमत्ता। यह मशीनों को इंसानों की तरह सोचने और सीखने की ताकत देता है।\n\nAI के उदाहरण:\n🤖 Google Assistant - जब आप 'OK Google' बोलते हैं\n📱 Face Unlock - मोबाइल चेहरा पहचानता है\n🎬 YouTube Recommendations - आपको पसंद के वीडियो दिखाता है\n🗣️ Siri, Alexa - आवाज़ से काम करते हैं",
+                            en:"AI means Artificial Intelligence. It gives machines the ability to think and learn like humans.\n\nExamples of AI:\n🤖 Google Assistant - 'OK Google'\n📱 Face Unlock - phone recognizes face\n🎬 YouTube Recommendations - shows videos you like\n🗣️ Siri, Alexa - work by voice"} },
+                    { title: {hi:"AI से बात करना", en:"Talking to AI"},
+                      desc: {hi:"Google Assistant या ChatGPT से सवाल पूछें।", en:"Ask questions to Google Assistant."},
+                      youtube: "https://www.youtube.com/results?search_query=how+to+talk+to+google+assistant+hindi",
+                      read: {hi:"आप AI से बात कर सकते हैं! Google Assistant से पूछें - 'मौसम कैसा है?' या 'चुटकुला सुनाओ'। ChatGPT से कहानी लिखवा सकते हैं। AI हमारा मददगार दोस्त है!",
+                            en:"You can talk to AI! Ask Google Assistant - 'How's the weather?' or 'Tell a joke'. Use ChatGPT to write stories. AI is our helpful friend!"} }
+                ],
+                tasks: [
+                    { hi: "Google Assistant से एक चुटकुला सुनें।", en: "Ask Google Assistant for a joke." },
+                    { hi: "AI का फुल फॉर्म बोलकर बताएं।", en: "Say the full form of AI out loud." },
+                    { hi: "घर में 3 AI का उदाहरण खोजें।", en: "Find 3 AI examples at home." }
+                ],
+                quiz: [
+                    { q: {hi:"AI का पूरा नाम क्या है?", en:"What is the full form of AI?"},
+                      options: [{hi:"Artificial Intelligence", en:"Artificial Intelligence"}, {hi:"Automatic Internet", en:"Automatic Internet"}, {hi:"Apple iPhone", en:"Apple iPhone"}],
+                      correct: 0,
+                      exp: {hi:"AI = Artificial Intelligence (कृत्रिम बुद्धिमत्ता)", en:"AI = Artificial Intelligence"} }
+                ]
+            },
+            5: {
+                title: { hi: "कक्षा 5: बैंक और डिजिटल पैसा", en: "Class 5: Bank & Digital Money" },
+                lessons: [
+                    { title: {hi:"बैंक खाता क्या है?", en:"What is a Bank Account?"},
+                      desc: {hi:"बैंक में पैसे सुरक्षित रखना सीखें।", en:"Learn to keep money safe in bank."},
+                      youtube: "https://www.youtube.com/results?search_query=bank+account+for+kids+hindi",
+                      read: {hi:"बैंक एक सुरक्षित जगह है जहाँ हम अपना पैसा जमा करते हैं। बैंक हमें ब्याज (Interest) देता है - यानी हमारा पैसा धीरे-धीरे बढ़ता है।\n\nबैंक के फायदे:\n💰 पैसा सुरक्षित रहता है\n📈 ब्याज मिलता है\n💳 ATM कार्ड से पैसे निकाल सकते हैं\n📱 UPI से ऑनलाइन पेमेंट कर सकते हैं\n\nभारत में UPI (Unified Payments Interface) से मोबाइल से पैसे भेज सकते हैं - बिल्कुल फ्री!",
+                            en:"A bank is a safe place to keep our money. Banks give us interest - our money grows slowly.\n\nBenefits:\n💰 Money is safe\n📈 Get interest\n💳 Withdraw via ATM card\n📱 Pay online via UPI\n\nUPI (Unified Payments Interface) lets you send money from mobile - completely free!"} },
+                    { title: {hi:"डिजिटल पेमेंट (UPI)", en:"Digital Payment (UPI)"},
+                      desc: {hi:"मोबाइल से पैसे भेजना सीखें।", en:"Learn to send money via mobile."},
+                      youtube: "https://www.youtube.com/results?search_query=UPI+payment+for+kids+hindi",
+                      read: {hi:"UPI से हम मोबाइल पर ऐप (जैसे GPay, PhonePe, Paytm) से पैसे भेज सकते हैं। बस किसी का UPI ID डालें या QR कोड स्कैन करें और पैसे भेज दें! बहुत आसान और सुरक्षित।",
+                            en:"UPI lets us send money via apps like GPay, PhonePe, Paytm. Just enter someone's UPI ID or scan QR code and send money! Very easy and safe."} }
+                ],
+                tasks: [
+                    { hi: "मम्मी-पापा के साथ बैंक जाकर देखें ATM कैसे काम करता है।", en: "Visit bank with parents and see how ATM works." },
+                    { hi: "Notepad में 5 वाक्य टाइप करें।", en: "Type 5 sentences in Notepad." },
+                    { hi: "UPI क्या है - बोलकर समझाएं।", en: "Explain what UPI is." }
+                ],
+                quiz: [
+                    { q: {hi:"बैंक में जमा पैसे पर बैंक क्या देता है?", en:"What does bank give on deposited money?"},
+                      options: [{hi:"दंड", en:"Penalty"}, {hi:"ब्याज (Interest)", en:"Interest"}, {hi:"कुछ नहीं", en:"Nothing"}],
+                      correct: 1,
+                      exp: {hi:"बैंक ब्याज देता है जिससे पैसा बढ़ता है।", en:"Bank gives interest, growing your money."} }
+                ]
+            }
+        }
+    },
+
+    /* ============ TRACK 2: CLASS 6-12 ============ */
+    2: {
+        name: { hi: "भाग 2: उच्च स्तर (उम्र 10-20 | कक्षा 6-12)", en: "Part 2: Advanced Level (Age 10-20 | Class 6-12)" },
+        desc: { hi: "फाइनेंस, स्टॉक मार्केट, AI, कोडिंग, फ्रीलांसिंग और कंप्यूटर की पूरी जानकारी से आत्मनिर्भर बनें।",
+                en: "Master finance, stock market, AI, coding, freelancing and computer skills to become self-reliant." },
+        classes: {
+            6: {
+                title: { hi: "कक्षा 6: चक्रवृद्धि ब्याज का जादू", en: "Class 6: Magic of Compound Interest" },
+                lessons: [
+                    { title: {hi:"चक्रवृद्धि ब्याज (Compound Interest)", en:"Compound Interest"},
+                      desc: {hi:"पैसे से पैसा बनाने का सबसे शक्तिशाली तरीका।", en:"The most powerful way to make money from money."},
+                      youtube: "https://www.youtube.com/results?search_query=compound+interest+explained+hindi",
+                      read: {hi:"चक्रवृद्धि ब्याज (Compound Interest) तब लगता है जब आपको पहले साल के ब्याज पर भी अगले साल ब्याज मिलता है।\n\nउदाहरण: ₹1,000 पर 10% ब्याज\nसाल 1: ₹1,000 + ₹100 = ₹1,100\nसाल 2: ₹1,100 का 10% = ₹110 → कुल ₹1,210\nसाल 10: ₹2,593 (करीब 2.5x!)\nसाल 20: ₹6,727 (करीब 6.7x!)\n\nअल्बर्ट आइंस्टीन ने इसे 'दुनिया का 8वां अजूबा' कहा था।\n\n🔑 सूत्र: A = P(1 + r/n)^(nt)\nजहाँ A = कुल रकम, P = मूलधन, r = ब्याज दर, n = साल में बार, t = साल\n\n🌟 जितनी जल्दी निवेश शुरू करें, उतना बड़ा फायदा!",
+                            en:"Compound interest means earning interest on your interest.\n\nExample: ₹1,000 at 10%\nYear 1: ₹1,000 + ₹100 = ₹1,100\nYear 2: 10% of ₹1,100 = ₹110 → ₹1,210\nYear 10: ₹2,593 (~2.5x!)\nYear 20: ₹6,727 (~6.7x!)\n\nEinstein called it 'the 8th wonder of the world'.\n\n🔑 Formula: A = P(1 + r/n)^(nt)\n\n🌟 Start investing early for maximum benefit!"} },
+                    { title: {hi:"कंप्यूटर हार्डवेयर और सॉफ्टवेयर", en:"Computer Hardware & Software"},
+                      desc: {hi:"कंप्यूटर के अंदर क्या है? सॉफ्टवेयर क्या है?", en:"What's inside a computer? What is software?"},
+                      youtube: "https://www.youtube.com/results?search_query=computer+hardware+software+hindi",
+                      read: {hi:"🖥️ हार्डवेयर (Hardware): जिन्हें हम छू सकते हैं - मॉनिटर, कीबोर्ड, माउस, CPU, RAM, हार्ड डिस्क, मदरबोर्ड।\n\n💾 सॉफ्टवेयर (Software): जो हम देख नहीं सकते पर काम करता है - Windows, MS Word, Chrome, गेम्स, ऐप्स।\n\nमुख्य हार्डवेयर:\n• CPU: दिमाग\n• RAM: अस्थायी मेमोरी (जितनी ज्यादा, उतना तेज़)\n• हार्ड डिस्क/SSD: स्थायी स्टोरेज\n• मदरबोर्ड: सबको जोड़ता है\n• GPU: ग्राफिक्स के लिए\n\nसॉफ्टवेयर के प्रकार:\n• OS (ऑपरेटिंग सिस्टम): Windows, macOS, Linux\n• एप्लीकेशन: Word, Chrome, Games",
+                            en:"🖥️ Hardware: Physical parts you can touch - monitor, keyboard, mouse, CPU, RAM, hard disk, motherboard.\n\n💾 Software: Programs you can't touch - Windows, MS Word, Chrome, games, apps.\n\nKey Hardware:\n• CPU: Brain\n• RAM: Temporary memory (more = faster)\n• Hard disk/SSD: Permanent storage\n• Motherboard: Connects everything\n• GPU: For graphics\n\nSoftware types:\n• OS: Windows, macOS, Linux\n• Applications: Word, Chrome, Games"} }
+                ],
+                tasks: [
+                    { hi: "₹100 पर 10% चक्रवृद्धि ब्याज का 3 साल का हिसाब लगाएं।", en: "Calculate 3-year compound interest on ₹100 at 10%." },
+                    { hi: "अपने घर के कंप्यूटर/मोबाइल के 5 हार्डवेयर और 5 सॉफ्टवेयर की सूची बनाएं।", en: "List 5 hardware & 5 software from your computer/mobile." },
+                    { hi: "फोन में Settings खोलकर RAM और Storage देखें।", en: "Open Settings in your phone, check RAM and Storage." }
+                ],
+                quiz: [
+                    { q: {hi:"चक्रवृद्धि ब्याज में सबसे बड़ा फायदा किससे मिलता है?", en:"What gives biggest advantage in compound interest?"},
+                      options: [{hi:"ज्यादा पैसा एक बार में डालना", en:"Investing huge amount once"}, {hi:"ज्यादा समय (Time)", en:"More time"}, {hi:"कम ब्याज दर", en:"Low interest rate"}],
+                      correct: 1,
+                      exp: {hi:"समय (Time) चक्रवृद्धि ब्याज का सबसे बड़ा दोस्त है। जितना जल्दी शुरू करें उतना बेहतर!", en:"Time is the biggest friend of compound interest. Start early!"} },
+                    { q: {hi:"RAM का क्या काम है?", en:"What does RAM do?"},
+                      options: [{hi:"स्थायी स्टोरेज", en:"Permanent storage"}, {hi:"अस्थायी मेमोरी (तेज़ी के लिए)", en:"Temporary memory (for speed)"}, {hi:"ग्राफिक्स", en:"Graphics"}],
+                      correct: 1,
+                      exp: {hi:"RAM अस्थायी मेमोरी है जो चालू प्रोग्राम को तेज़ रखती है।", en:"RAM is temporary memory that keeps running programs fast."} }
+                ]
+            },
+            7: {
+                title: { hi: "कक्षा 7: बजट और HTML", en: "Class 7: Budgeting & HTML" },
+                lessons: [
+                    { title: {hi:"50-30-20 बजट नियम", en:"50-30-20 Budget Rule"},
+                      desc: {hi:"कमाई को कैसे बाँटें?", en:"How to distribute income?"},
+                      youtube: "https://www.youtube.com/results?search_query=50+30+20+budget+rule+hindi",
+                      read: {hi:"50-30-20 नियम (Elizabeth Warren का):\n\n🟢 50% - जरूरतें (Needs): किराया, खाना, बिजली, किताबें\n🟡 30% - इच्छाएँ (Wants): मूवी, खेल, शौक\n🔵 20% - बचत/निवेश (Savings/Investment): भविष्य के लिए\n\nउदाहरण: ₹1000 मिले तो\n• ₹500 जरूरतों पर\n• ₹300 इच्छाओं पर\n• ₹200 बचाएं और निवेश करें\n\n🌟 जब आप बड़े हों और पॉकेट मनी या कमाई मिले, इस नियम का पालन करें!",
+                            en:"50-30-20 Rule (by Elizabeth Warren):\n\n🟢 50% - Needs: rent, food, electricity, books\n🟡 30% - Wants: movies, games, hobbies\n🔵 20% - Savings/Investment: for future\n\nExample: If you get ₹1000\n• ₹500 on needs\n• ₹300 on wants\n• ₹200 saved & invested\n\n🌟 Follow this rule when you get pocket money or income!"} },
+                    { title: {hi:"HTML - पहला वेब पेज", en:"HTML - Your First Web Page"},
+                      desc: {hi:"वेबसाइट बनाना सीखें।", en:"Learn to build websites."},
+                      youtube: "https://www.youtube.com/results?search_query=html+tutorial+for+beginners+hindi",
+                      read: {hi:"HTML (HyperText Markup Language) वेबसाइट बनाने की भाषा है।\n\nएक बेसिक HTML फाइल:\n\n<!DOCTYPE html>\n<html>\n<head>\n  <title>मेरी वेबसाइट</title>\n</head>\n<body>\n  <h1>नमस्ते दुनिया!</h1>\n  <p>यह मेरा पहला पेज है।</p>\n</body>\n</html>\n\n🔹 h1-h6: हेडिंग (Heading)\n🔹 p: पैराग्राफ (Paragraph)\n🔹 img: तस्वीर\n🔹 a: लिंक\n🔹 ul/li: लिस्ट\n\n📱 मोबाइल पर Acode या TrebEdit ऐप से HTML लिख सकते हैं।\n💻 कंप्यूटर पर Notepad खोलें → कोड लिखें → .html सेव करें → ब्राउज़र में खोलें!",
+                            en:"HTML (HyperText Markup Language) is used to build websites.\n\nBasic HTML file:\n\n<!DOCTYPE html>\n<html>\n<head>\n  <title>My Website</title>\n</head>\n<body>\n  <h1>Hello World!</h1>\n  <p>This is my first page.</p>\n</body>\n</html>\n\n🔹 h1-h6: Heading\n🔹 p: Paragraph\n🔹 img: Image\n🔹 a: Link\n🔹 ul/li: List\n\n📱 Use Acode or TrebEdit app on mobile.\n💻 On computer: Open Notepad → write code → save as .html → open in browser!"} }
+                ],
+                tasks: [
+                    { hi: "अपनी पॉकेट मनी का 50-30-20 बजट बनाएं।", en: "Create 50-30-20 budget of your pocket money." },
+                    { hi: "Notepad/Acode में HTML से अपना नाम लिखकर वेबपेज बनाएं।", en: "Create a web page showing your name using HTML." },
+                    { hi: "अपनी साप्ताहिक खर्च की सूची बनाएं।", en: "List your weekly expenses." }
+                ],
+                quiz: [
+                    { q: {hi:"50-30-20 नियम में 20% किसके लिए है?", en:"In 50-30-20 rule, what is 20% for?"},
+                      options: [{hi:"मनोरंजन", en:"Entertainment"}, {hi:"बचत और निवेश", en:"Savings & Investment"}, {hi:"कपड़े", en:"Clothes"}],
+                      correct: 1,
+                      exp: {hi:"20% हिस्सा हमेशा बचत और निवेश के लिए होना चाहिए।", en:"20% should always be for savings and investment."} },
+                    { q: {hi:"HTML में हेडिंग के लिए कौन सा टैग है?", en:"Which tag is used for heading in HTML?"},
+                      options: [{hi:"<p>", en:"<p>"}, {hi:"<h1>", en:"<h1>"}, {hi:"<div>", en:"<div>"}],
+                      correct: 1,
+                      exp: {hi:"<h1> से <h6> तक हेडिंग टैग हैं।", en:"<h1> to <h6> are heading tags."} }
+                ]
+            },
+            8: {
+                title: { hi: "कक्षा 8: स्टॉक मार्केट और निवेश", en: "Class 8: Stock Market & Investment" },
+                lessons: [
+                    { title: {hi:"शेयर बाजार क्या है?", en:"What is Stock Market?"},
+                      desc: {hi:"कंपनियों में हिस्सेदारी खरीदना सीखें।", en:"Learn to buy ownership in companies."},
+                      youtube: "https://www.youtube.com/results?search_query=stock+market+for+beginners+hindi",
+                      read: {hi:"शेयर बाजार (Stock Market) वह जगह है जहाँ हम कंपनियों के शेयर (हिस्से) खरीद-बेच सकते हैं।\n\n🔹 शेयर (Share): कंपनी का छोटा सा हिस्सा\n🔹 NSE/BSE: भारत के दो मुख्य स्टॉक एक्सचेंज\n🔹 सेंसेक्स/निफ्टी: मार्केट का इंडेक्स\n\n🌟 शेयर खरीदने का मतलब:\n• आप उस कंपनी के हिस्सेदार बन गए\n• कंपनी के प्रॉफिट में हिस्सा मिलेगा (डिविडेंड)\n• कंपनी बढ़ेगी तो आपका शेयर महंगा होगा\n• कंपनी डूबेगी तो पैसा भी जा सकता है (रिस्क)\n\n📈 म्यूचुअल फंड (Mutual Fund): कई लोगों का पैसा इकट्ठा करके एक्सपर्ट शेयर खरीदते हैं - शुरुआत करने वालों के लिए बेहतर!\n\n⚠️ निवेश से पहले पढ़ाई जरूरी है - बिना समझे पैसा न लगाएं!",
+                            en:"Stock Market is where we buy/sell shares of companies.\n\n🔹 Share: Small piece of a company\n🔹 NSE/BSE: India's two main exchanges\n🔹 Sensex/Nifty: Market index\n\n🌟 Buying a share means:\n• You become a part-owner\n• Get share of profits (dividend)\n• Share price rises if company grows\n• You can lose money too (risk)\n\n📈 Mutual Fund: Money pooled from many investors, managed by experts - better for beginners!\n\n⚠️ Learn before investing - never invest blindly!"} },
+                    { title: {hi:"Python कोडिंग की शुरुआत", en:"Python Coding Basics"},
+                      desc: {hi:"दुनिया की सबसे आसान प्रोग्रामिंग भाषा।", en:"World's easiest programming language."},
+                      youtube: "https://www.youtube.com/results?search_query=python+tutorial+in+hindi+beginners",
+                      read: {hi:"Python एक आसान प्रोग्रामिंग भाषा है जिसका उपयोग AI, वेब, डेटा साइंस में होता है।\n\nपहला प्रोग्राम:\nprint(\"Hello World!\")\n\nचर (Variables):\nname = \"राहुल\"\nage = 15\nprint(\"मेरा नाम\", name, \"है\")\n\nशर्तें (Conditions):\nif age >= 18:\n    print(\"वयस्क\")\nelse:\n    print(\"बालक\")\n\nलूप (Loop):\nfor i in range(5):\n    print(\"नमस्ते\", i)\n\n📱 मोबाइल पर: Pydroid 3 ऐप\n💻 कंप्यूटर पर: python.org से डाउनलोड करें या Google Colab (free online)",
+                            en:"Python is an easy language used in AI, Web, Data Science.\n\nFirst program:\nprint(\"Hello World!\")\n\nVariables:\nname = \"Rahul\"\nage = 15\nprint(\"My name is\", name)\n\nConditions:\nif age >= 18:\n    print(\"Adult\")\nelse:\n    print(\"Minor\")\n\nLoop:\nfor i in range(5):\n    print(\"Hello\", i)\n\n📱 Mobile: Pydroid 3 app\n💻 Computer: python.org or Google Colab (free online)"} }
+                ],
+                tasks: [
+                    { hi: "NSE/BSE, सेंसेक्स, निफ्टी का फुल फॉर्म बोलकर बताएं।", en: "Say full forms of NSE/BSE, Sensex, Nifty." },
+                    { hi: "Pydroid 3 या Colab में 'Hello World' प्रिंट करें।", en: "Print 'Hello World' in Pydroid 3 or Colab." },
+                    { hi: "3 कंपनियों के नाम लिखें जिनके शेयर आप खरीदना चाहेंगे।", en: "Write 3 companies whose shares you'd like to buy." }
+                ],
+                quiz: [
+                    { q: {hi:"किसी कंपनी का शेयर खरीदने का क्या मतलब है?", en:"What does buying a company's share mean?"},
+                      options: [{hi:"कंपनी को उधार देना", en:"Lending to company"}, {hi:"कंपनी में हिस्सेदारी", en:"Ownership in company"}, {hi:"नौकरी पाना", en:"Getting a job"}],
+                      correct: 1,
+                      exp: {hi:"शेयर खरीदने से आप आंशिक मालिक बनते हैं।", en:"Buying shares makes you a part-owner."} }
+                ]
+            },
+            9: {
+                title: { hi: "कक्षा 9: AI प्रॉम्प्ट इंजीनियरिंग", en: "Class 9: AI Prompt Engineering" },
+                lessons: [
+                    { title: {hi:"प्रॉम्प्ट इंजीनियरिंग सीखें", en:"Learn Prompt Engineering"},
+                      desc: {hi:"AI से सही जवाब कैसे पाएं?", en:"How to get right answers from AI?"},
+                      youtube: "https://www.youtube.com/results?search_query=prompt+engineering+tutorial+hindi",
+                      read: {hi:"AI प्रॉम्प्ट इंजीनियरिंग = AI को सही निर्देश देने की कला।\n\n❌ बुरा प्रॉम्प्ट: \"AI, कुछ बताओ\"\n✅ अच्छा प्रॉम्प्ट: \"AI, मुझे 12 साल के बच्चे को पैसे बचाना सिखाने के लिए 5 आसान टिप्स बताओ, हिंदी में\"\n\n🌟 अच्छे प्रॉम्प्ट के 4 नियम:\n1️⃣ स्पष्ट रहें (Be Clear): क्या चाहिए साफ बताएं\n2️⃣ संदर्भ दें (Context): किसके लिए, क्यों\n3️⃣ फॉर्मेट बताएं (Format): लिस्ट, टेबल, पैराग्राफ\n4️⃣ उदाहरण दें (Example): कैसा जवाब चाहिए\n\n📌 उदाहरण:\n❌ \"Essay on AI\"\n✅ \"AI के फायदे-नुकसान पर 300 शब्द का निबंध लिखो, कक्षा 9 के छात्र के लिए, सरल भाषा में\"\n\n🎯 AI टूल्स:\n• ChatGPT (OpenAI)\n• Gemini (Google)\n• Claude (Anthropic)\n• Copilot (Microsoft)\n\n💰 प्रॉम्प्ट इंजीनियर की सैलरी ₹6-20 लाख/साल!",
+                            en:"AI Prompt Engineering = Art of giving correct instructions to AI.\n\n❌ Bad prompt: \"AI, tell me something\"\n✅ Good prompt: \"AI, give me 5 easy tips to teach 12-year-old about saving money, in English\"\n\n🌟 4 rules of good prompts:\n1️⃣ Be Clear\n2️⃣ Give Context: for whom, why\n3️⃣ Specify Format: list, table, paragraph\n4️⃣ Give Example\n\n📌 Example:\n❌ \"Essay on AI\"\n✅ \"Write a 300-word essay on pros/cons of AI for class 9 student in simple language\"\n\n🎯 AI Tools:\n• ChatGPT (OpenAI)\n• Gemini (Google)\n• Claude (Anthropic)\n• Copilot (Microsoft)\n\n💰 Prompt Engineer salary: ₹6-20 lakh/year!"} },
+                    { title: {hi:"AI से पढ़ाई कैसे करें?", en:"How to study with AI?"},
+                      desc: {hi:"AI को अपना personal tutor बनाएं।", en:"Make AI your personal tutor."},
+                      youtube: "https://www.youtube.com/results?search_query=use+chatgpt+for+study+hindi",
+                      read: {hi:"AI से पढ़ाई के 7 तरीके:\n\n1️⃣ कठिन टॉपिक सरल भाषा में समझें\n   \"Newton's law आसान भाषा में उदाहरण के साथ समझाओ\"\n\n2️⃣ प्रश्न पूछें - होमवर्क में मदद\n   \"इस सवाल को step-by-step solve करके दिखाओ\"\n\n3️⃣ नोट्स बनवाएं\n   \"Photosynthesis पर 10 important points दो\"\n\n4️⃣ क्विज़ बनवाएं\n   \"मुझसे 5 प्रश्न पूछो - त्रिकोणमिति से\"\n\n5️⃣ निबंध लिखवाएं\n   \"मेरे विचार दिए, इन्हें अच्छे निबंध में बदलो\"\n\n6️⃣ भाषा सीखें\n   \"Translate & explain this English sentence in Hindi\"\n\n7️⃣ कोडिंग सीखें\n   \"Python में calculator बनाने का code लिखो, समझाओ\"\n\n⚠️ ध्यान दें:\n• AI गलत भी हो सकता है - verify करें\n• पूरा होमवर्क AI से न करवाएं - खुद भी सोचें\n• अपना नाम, पता, फोन नंबर AI से साझा न करें",
+                            en:"7 ways to study with AI:\n\n1️⃣ Understand tough topics in simple language\n2️⃣ Ask questions - homework help\n3️⃣ Generate notes\n4️⃣ Create quizzes\n5️⃣ Write essays\n6️⃣ Learn languages\n7️⃣ Learn coding\n\n⚠️ Important:\n• AI can be wrong - verify\n• Don't copy entire homework from AI\n• Never share personal info with AI"} }
+                ],
+                tasks: [
+                    { hi: "Gemini से 3 अलग-अलग तरीकों से एक ही सवाल पूछकर देखें।", en: "Ask the same question to Gemini in 3 different ways." },
+                    { hi: "AI को अच्छा प्रॉम्प्ट लिखकर कक्षा 9 के किसी टॉपिक पर नोट्स बनवाएं।", en: "Write a good prompt to generate Class 9 notes on a topic." },
+                    { hi: "AI से अपनी पसंद के विषय पर 5 सवाल पूछें।", en: "Ask 5 questions to AI on your favorite topic." }
+                ],
+                quiz: [
+                    { q: {hi:"प्रॉम्प्ट इंजीनियरिंग क्या है?", en:"What is Prompt Engineering?"},
+                      options: [{hi:"कंप्यूटर रिपेयर करना", en:"Computer repair"}, {hi:"AI को सही निर्देश देने की कला", en:"Art of giving right instructions to AI"}, {hi:"वायरस बनाना", en:"Making viruses"}],
+                      correct: 1,
+                      exp: {hi:"सही, स्पष्ट प्रॉम्प्ट से AI से बेहतरीन जवाब मिलते हैं।", en:"Clear prompts get the best answers from AI."} }
+                ]
+            },
+            10: {
+                title: { hi: "कक्षा 10: फ्रीलांसिंग और ऑनलाइन कमाई", en: "Class 10: Freelancing & Online Earning" },
+                lessons: [
+                    { title: {hi:"फ्रीलांसिंग क्या है?", en:"What is Freelancing?"},
+                      desc: {hi:"घर बैठे अपनी स्किल से कमाई करें।", en:"Earn from home using your skills."},
+                      youtube: "https://www.youtube.com/results?search_query=freelancing+for+beginners+hindi",
+                      read: {hi:"फ्रीलांसिंग = अपनी स्किल्स से स्वतंत्र रूप से काम करके पैसे कमाना।\n\n🎯 फ्रीलांसिंग की खास बातें:\n• कोई बॉस नहीं\n• अपने समय पर काम\n• दुनिया भर के क्लाइंट्स\n• घर से काम\n\n💼 लोकप्रिय फ्रीलांस स्किल्स:\n• Content Writing (सामग्री लेखन)\n• Graphic Design (Canva, Photoshop)\n• Web Development (HTML, CSS, JS)\n• Video Editing\n• Digital Marketing\n• Translation (हिंदी-अंग्रेजी)\n• Data Entry\n• Programming (Python, Java)\n\n🌐 फ्रीलांसिंग प्लेटफॉर्म:\n• Fiverr - beginners के लिए best\n• Upwork - professional projects\n• Freelancer.com\n• Truelancer\n• Internshala (Internships)\n\n💰 कमाई: शुरुआत में ₹500-2000/project, अनुभव बढ़ने पर ₹50,000+/month\n\n📝 पहला स्टेप: कोई एक स्किल सीखें (3-6 महीने) → Portfolio बनाएं → Fiverr पर gig बनाएं\n\n⚠️ सावधान: कोई 'फ्री में पैसे कमाओ' वाला स्कैम नहीं - मेहनत जरूरी है!",
+                            en:"Freelancing = earning money by working independently with your skills.\n\n🎯 Key features:\n• No boss\n• Your own time\n• Clients worldwide\n• Work from home\n\n💼 Popular freelance skills:\n• Content Writing\n• Graphic Design (Canva, Photoshop)\n• Web Development\n• Video Editing\n• Digital Marketing\n• Translation\n• Data Entry\n• Programming\n\n🌐 Platforms:\n• Fiverr - best for beginners\n• Upwork\n• Freelancer.com\n• Truelancer\n• Internshala\n\n💰 Earning: ₹500-2000/project initially, ₹50,000+/month with experience\n\n📝 First step: Learn one skill (3-6 months) → Build portfolio → Create Fiverr gig\n\n⚠️ Beware: No 'get rich quick' scams - hard work needed!"} },
+                    { title: {hi:"Graphic Design सीखें", en:"Learn Graphic Design"},
+                      desc: {hi:"Canva से डिज़ाइन सीखें - मोबाइल पर ही!", en:"Learn design with Canva - on mobile!"},
+                      youtube: "https://www.youtube.com/results?search_query=canva+graphic+design+tutorial+hindi",
+                      read: {hi:"Canva = Free ऑनलाइन डिज़ाइन टूल (मोबाइल ऐप भी है)।\n\n🎨 Canva में क्या बना सकते हैं:\n• पोस्टर, बैनर\n• Instagram पोस्ट\n• YouTube thumbnail\n• प्रेजेंटेशन\n• विज़िटिंग कार्ड, लोगो\n• रिज्यूमे\n\n💰 फ्रीलांस कमाई:\n• Logo: ₹300-2000\n• YouTube Thumbnail: ₹100-500\n• Social Media Post: ₹200-1000\n• Complete Branding: ₹5000-20,000\n\n📱 शुरुआत: Canva ऐप डाउनलोड करें → Free templates से अभ्यास करें → अपना portfolio बनाएं → Fiverr/Instagram पर client खोजें",
+                            en:"Canva = Free online design tool (mobile app too).\n\n🎨 What you can create:\n• Posters, banners\n• Instagram posts\n• YouTube thumbnails\n• Presentations\n• Visiting cards, logos\n• Resumes\n\n💰 Freelance earning:\n• Logo: ₹300-2000\n• Thumbnail: ₹100-500\n• Social media post: ₹200-1000\n• Complete branding: ₹5000-20,000\n\n📱 Start: Download Canva → Practice with templates → Build portfolio → Find clients on Fiverr/Instagram"} }
+                ],
+                tasks: [
+                    { hi: "Fiverr ऐप डाउनलोड करें और 3 gigs देखें।", en: "Download Fiverr app and view 3 gigs." },
+                    { hi: "Canva में एक पोस्टर बनाएं।", en: "Create a poster in Canva." },
+                    { hi: "अपनी 3 स्किल्स की सूची बनाएं जो सीख सकते हैं।", en: "List 3 skills you can learn." }
+                ],
+                quiz: [
+                    { q: {hi:"फ्रीलांसिंग में काम कैसे मिलता है?", en:"How does one get work in freelancing?"},
+                      options: [{hi:"नौकरी अप्लाई करके", en:"By job application"}, {hi:"अपनी स्किल दिखाकर क्लाइंट से", en:"By showing skills to clients"}, {hi:"दोस्तों से माँगकर", en:"By asking friends"}],
+                      correct: 1,
+                      exp: {hi:"फ्रीलांसर अपनी स्किल और पोर्टफोलियो से क्लाइंट को आकर्षित करते हैं।", en:"Freelancers attract clients through skills and portfolio."} }
+                ]
+            },
+            11: {
+                title: { hi: "कक्षा 11: एसेट बनाम लायबिलिटी", en: "Class 11: Assets vs Liabilities" },
+                lessons: [
+                    { title: {hi:"एसेट (Asset) क्या है?", en:"What is an Asset?"},
+                      desc: {hi:"अमीर लोग एसेट खरीदते हैं - जानिए क्यों।", en:"Rich people buy assets - know why."},
+                      youtube: "https://www.youtube.com/results?search_query=assets+vs+liabilities+rich+dad+poor+dad+hindi",
+                      read: {hi:"रॉबर्ट कियोसाकी की किताब 'Rich Dad Poor Dad' का मुख्य विचार:\n\n💰 एसेट (Asset): जो आपकी जेब में पैसा डाले (कमाई करे)\nउदाहरण:\n• किराए पर दिया मकान\n• शेयर/म्यूचुअल फंड\n• FD/RD\n• ऑनलाइन कोर्स/बिज़नेस\n• लाइसेंस/किताबों की रॉयल्टी\n\n💸 लायबिलिटी (Liability): जो जेब से पैसा निकाले\nउदाहरण:\n• EMI वाली कार (जो कमाई नहीं करती)\n• क्रेडिट कार्ड का बकाया\n• महंगे गैजेट्स जो बेकार पड़े हैं\n\n🌟 अमीर बनने का नियम:\nएसेट खरीदो → उससे आय बढ़ाओ → और एसेट खरीदो\n\n📊 उदाहरण:\nराहुल ने ₹5 लाख की बाइक (liability) खरीदी - EMI ₹5000/month\nप्रिया ने ₹5 लाख का शेयर (asset) खरीदा - Dividend ₹20,000/year\n5 साल बाद: राहुल का पैसा बर्बाद, प्रिया का double!",
+                            en:"Key idea from Robert Kiyosaki's 'Rich Dad Poor Dad':\n\n💰 Asset: Puts money IN your pocket\nExamples:\n• Rented house\n• Shares/Mutual Funds\n• FD/RD\n• Online course/business\n• Book royalties\n\n💸 Liability: Takes money OUT of your pocket\nExamples:\n• Car with EMI (non-income)\n• Credit card debt\n• Expensive unused gadgets\n\n🌟 Rule to get rich:\nBuy assets → Increase income → Buy more assets\n\n📊 Example:\nRahul bought ₹5L bike (liability) - EMI ₹5000/month\nPriya bought ₹5L shares (asset) - Dividend ₹20,000/year\nAfter 5 years: Rahul lost money, Priya doubled!"} },
+                    { title: {hi:"Python से छोटा प्रोजेक्ट", en:"Python Mini Project"},
+                      desc: {hi:"Calculator या To-Do बनाएं।", en:"Build calculator or To-Do."},
+                      youtube: "https://www.youtube.com/results?search_query=python+mini+project+hindi",
+                      read: {hi:"Python से बना सकते हैं:\n\n🧮 Simple Calculator:\ndef add(a,b): return a+b\ndef sub(a,b): return a-b\ndef mul(a,b): return a*b\ndef div(a,b): return a/b if b!=0 else \"Cannot divide by 0\"\n\nprint(add(5,3))  # 8\nprint(mul(4,2))  # 8\n\n📝 To-Do List:\ntasks = []\ndef add_task(t):\n    tasks.append(t)\n    print(f\"Added: {t}\")\n\ndef show_tasks():\n    for i, t in enumerate(tasks, 1):\n        print(f\"{i}. {t}\")\n\nadd_task(\"पढ़ाई करना\")\nadd_task(\"Python सीखना\")\nshow_tasks()\n\n🎯 ये projects आप resume में लगा सकते हैं!",
+                            en:"Build with Python:\n\n🧮 Simple Calculator:\ndef add(a,b): return a+b\ndef sub(a,b): return a-b\n\n📝 To-Do List:\ntasks = []\ndef add_task(t):\n    tasks.append(t)\n\n🎯 Use these projects in your resume!"} }
+                ],
+                tasks: [
+                    { hi: "अपने घर के 5 एसेट और 5 लायबिलिटी की सूची बनाएं।", en: "List 5 assets and 5 liabilities from your home." },
+                    { hi: "Python में कोई छोटा calculator बनाएं।", en: "Build a small calculator in Python." },
+                    { hi: "'Rich Dad Poor Dad' की किताब के 3 quotes पढ़ें।", en: "Read 3 quotes from 'Rich Dad Poor Dad'." }
+                ],
+                quiz: [
+                    { q: {hi:"एसेट (Asset) क्या है?", en:"What is an Asset?"},
+                      options: [{hi:"जो जेब से पैसा निकाले", en:"Takes money from pocket"}, {hi:"जो जेब में पैसा डाले", en:"Puts money in pocket"}, {hi:"महंगी कार", en:"Expensive car"}],
+                      correct: 1,
+                      exp: {hi:"Asset वह है जो आपको पैसे कमा कर दे।", en:"An asset generates income for you."} }
+                ]
+            },
+            12: {
+                title: { hi: "कक्षा 12: फाइनेंशियल फ्रीडम और स्टार्टअप", en: "Class 12: Financial Freedom & Startup" },
+                lessons: [
+                    { title: {hi:"फाइनेंशियल फ्रीडम क्या है?", en:"What is Financial Freedom?"},
+                      desc: {hi:"वित्तीय स्वतंत्रता हासिल करने का रोडमैप।", en:"Roadmap to achieve financial freedom."},
+                      youtube: "https://www.youtube.com/results?search_query=financial+freedom+roadmap+hindi",
+                      read: {hi:"फाइनेंशियल फ्रीडम (वित्तीय स्वतंत्रता) = आपकी पैसिव इनकम (Passive Income) आपके खर्चों से ज्यादा हो जाए।\n\n💰 पैसिव इनकम = बिना active काम किए मिलने वाली आय:\n• शेयर/म्यूचुअल फंड से डिविडेंड\n• किराये से आय\n• FD का ब्याज\n• ऑनलाइन कोर्स/YouTube की कमाई\n• रॉयल्टी\n\n📊 फाइनेंशियल फ्रीडम का गणित:\nमान लो आपका महीने का खर्च = ₹40,000\nआपको ऐसी पैसिव इनकम चाहिए = ₹40,000/month\n\nकैसे? मान लो 8% return पर:\n₹40,000 × 12 ÷ 8% = ₹60,00,000 का निवेश चाहिए\n\n🛤️ रोडमैप (20 साल की उम्र से शुरू):\n\nAge 20: स्किल सीखें (कोडिंग/डिज़ाइन), पहली कमाई\nAge 22: ₹5,000/month निवेश शुरू (म्यूचुअल फंड SIP)\nAge 25: ₹50,000/month income का 30% निवेश\nAge 30: पहली प्रॉपर्टी खरीदें\nAge 35: ₹1 करोड़ क्लब\nAge 40: पूर्ण फाइनेंशियल फ्रीडम\n\n🌟 3 मूल नियम:\n1. Spend less than you earn (जितना कमाएं, कम खर्चें)\n2. Invest regularly (नियमित निवेश)\n3. Learn continuously (सीखते रहें)\n\n⚠️ जल्दबाज़ी न करें - यह मैराथन है, स्प्रिंट नहीं!",
+                            en:"Financial Freedom = Your Passive Income > Your Expenses\n\n💰 Passive Income = Money without active work:\n• Dividends from shares/MF\n• Rental income\n• FD interest\n• Online course/YouTube income\n• Royalties\n\n📊 Math:\nSay monthly expenses = ₹40,000\nYou need passive income = ₹40,000/month\n\nAt 8% return: ₹40,000 × 12 ÷ 8% = ₹60,00,000 investment needed\n\n🛤️ Roadmap (start at 20):\n\nAge 20: Learn skills, first earning\nAge 22: Start investing ₹5,000/month (MF SIP)\nAge 25: Invest 30% of ₹50,000 income\nAge 30: Buy first property\nAge 35: ₹1 Crore club\nAge 40: Complete financial freedom\n\n🌟 3 Golden Rules:\n1. Spend less than you earn\n2. Invest regularly\n3. Learn continuously\n\n⚠️ Don't rush - it's a marathon, not sprint!"} },
+                    { title: {hi:"स्टार्टअप और बिज़नेस आइडिया", en:"Startup & Business Ideas"}},
+                ],
+                tasks: [
+                    { hi: "अपना 5-साल का फाइनेंशियल फ्रीडम प्लान लिखें।", en: "Write your 5-year financial freedom plan." },
+                    { hi: "एक स्टार्टअप आइडिया लिखें और उसके 3 फायदे बताएं।", en: "Write a startup idea and its 3 advantages." },
+                    { hi: "SIP कैलकुलेटर से 10 साल का रिटर्न देखें (groww/zerodha)।", en: "Check 10-year SIP return (groww/zerodha calculator)." }
+                ],
+                quiz: [
+                    { q: {hi:"फाइनेंशियल फ्रीडम का असली मतलब क्या है?", en:"Real meaning of financial freedom?"},
+                      options: [{hi:"महंगी गाड़ी खरीदना", en:"Buying expensive car"}, {hi:"पैसिव इनकम > खर्च", en:"Passive Income > Expenses"}, {hi:"बैंक से लोन लेना", en:"Taking loan from bank"}],
+                      correct: 1,
+                      exp: {hi:"फाइनेंशियल फ्रीडम = आपकी passive income जीवनयापन के खर्चों से ज्यादा हो।", en:"Financial freedom = Passive income > living expenses."} }
+                ]
+            }
+        }
+    }
+};
+
+/* ---------- RENDER FUNCTIONS ---------- */
+
+function updateBanner() {
+    const data = curriculum[currentTrack];
+    document.getElementById('banner-title').innerText = currentLang === 'hi' ? data.name.hi : data.name.en;
+    document.getElementById('banner-desc').innerText = currentLang === 'hi' ? data.desc.hi : data.desc.en;
+}
+
+function switchTrack(trackNum) {
+    currentTrack = trackNum;
+    currentClass = (trackNum === 1) ? 1 : 6;
+
+    const btn1 = document.getElementById('btn-track1');
+    const btn2 = document.getElementById('btn-track2');
+
+    if (trackNum === 1) {
+        btn1.className = "py-3 px-4 bg-white text-indigo-800 text-sm font-bold rounded-xl shadow-lg border-2 border-yellow-400 transition transform hover:scale-[1.02]";
+        btn1.querySelectorAll('div div')[1].className = "text-[10px] text-indigo-600";
+        btn2.className = "py-3 px-4 bg-indigo-900/40 hover:bg-indigo-900/60 text-white text-sm font-bold rounded-xl border-2 border-indigo-400/50 transition transform hover:scale-[1.02]";
+        btn2.querySelectorAll('div div')[1].className = "text-[10px] text-indigo-200";
+    } else {
+        btn2.className = "py-3 px-4 bg-white text-indigo-800 text-sm font-bold rounded-xl shadow-lg border-2 border-yellow-400 transition transform hover:scale-[1.02]";
+        btn2.querySelectorAll('div div')[1].className = "text-[10px] text-indigo-600";
+        btn1.className = "py-3 px-4 bg-indigo-900/40 hover:bg-indigo-900/60 text-white text-sm font-bold rounded-xl border-2 border-indigo-400/50 transition transform hover:scale-[1.02]";
+        btn1.querySelectorAll('div div')[1].className = "text-[10px] text-indigo-200";
+    }
+
+    updateBanner();
+    renderClassTabs();
+    renderContent();
+}
+
+function renderClassTabs() {
+    const container = document.getElementById('class-tabs');
+    container.innerHTML = '';
+    const start = (currentTrack === 1) ? 1 : 6;
+    const end = (currentTrack === 1) ? 5 : 12;
+
+    for (let i = start; i <= end; i++) {
+        const btn = document.createElement('button');
+        btn.innerText = currentLang === 'hi' ? `कक्षा ${i}` : `Class ${i}`;
+        btn.className = `px-3 md:px-4 py-2 text-xs md:text-sm font-bold rounded-lg transition ${currentClass === i ? 'tab-active' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`;
+        btn.onclick = () => { currentClass = i; renderClassTabs(); renderContent(); };
+        container.appendChild(btn);
+    }
+}
+
+function renderContent() {
+    const classData = curriculum[currentTrack].classes[currentClass];
+    if (!classData) return;
+
+    // Class title
+    const titleEl = document.createElement('h3');
+    titleEl.className = "text-sm font-bold text-indigo-900 mb-2";
+
+    // LESSONS
+    const lessonsContainer = document.getElementById('lessons-container');
+    lessonsContainer.innerHTML = '';
+    classData.lessons.forEach((lesson, idx) => {
+        const lessonEl = document.createElement('div');
+        lessonEl.className = "lesson-card bg-slate-50 rounded-xl border border-slate-200 overflow-hidden transition-all";
+        lessonEl.innerHTML = `
+            <div class="p-4">
+                <div class="flex justify-between items-start gap-3 mb-2">
+                    <div>
+                        <h4 class="font-bold text-sm text-indigo-900">📖 ${currentLang === 'hi' ? lesson.title.hi : lesson.title.en}</h4>
+                        <p class="text-xs text-slate-600 mt-0.5">${currentLang === 'hi' ? lesson.desc.hi : lesson.desc.en}</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <a href="${lesson.youtube}" target="_blank"
+                       class="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow hover:bg-red-700 transition flex items-center gap-1">
+                        ▶ YouTube Video
+                    </a>
+                    <button onclick="toggleRead(${idx})" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow hover:bg-indigo-700 transition">
+                        📖 पढ़ें / Read
+                    </button>
+                    <button onclick="speakLesson(${idx})" class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow hover:bg-emerald-700 transition">
+                        🔊 सुनें / Listen
+                    </button>
+                </div>
+                <div id="read-${idx}" class="hidden mt-3 bg-white p-3 rounded-lg border border-indigo-200 text-xs text-slate-700 leading-relaxed whitespace-pre-line">
+                    ${currentLang === 'hi' ? lesson.read.hi : lesson.read.en}
+                </div>
+            </div>
+        `;
+        lessonsContainer.appendChild(lessonEl);
+    });
+
+    // TASKS
+    const tasksContainer = document.getElementById('tasks-container');
+    tasksContainer.innerHTML = '';
+    classData.tasks.forEach((task, idx) => {
+        const taskText = currentLang === 'hi' ? task.hi : task.en;
+        const taskId = `t${currentTrack}_${currentClass}_${idx}`;
+        tasksContainer.innerHTML += `
+            <label class="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 cursor-pointer transition">
+                <input type="checkbox" id="${taskId}" onchange="completeTask(this, '${taskId}')" class="mt-1 w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                <span class="text-xs text-slate-700">${taskText}</span>
+            </label>
+        `;
+    });
+
+    // QUIZ
+    const quizContainer = document.getElementById('quiz-container');
+    quizContainer.innerHTML = '';
+    classData.quiz.forEach((q, qIdx) => {
+        const qText = currentLang === 'hi' ? q.q.hi : q.q.en;
+        let optionsHtml = '';
+        q.options.forEach((opt, oIdx) => {
+            const optText = currentLang === 'hi' ? opt.hi : opt.en;
+            optionsHtml += `
+                <button onclick="checkAnswer(${qIdx}, ${oIdx}, ${q.correct}, '${encodeURIComponent(currentLang === 'hi' ? q.exp.hi : q.exp.en)}')"
+                    class="quiz-opt-${qIdx} w-full text-left p-3 rounded-lg border border-slate-200 text-xs font-medium hover:bg-purple-50 hover:border-purple-300 transition mb-2">
+                    ${oIdx + 1}. ${optText}
+                </button>
+            `;
+        });
+        quizContainer.innerHTML += `
+            <div class="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <p class="text-sm font-bold text-slate-800 mb-3">❓ ${qText}</p>
+                <div>${optionsHtml}</div>
+                <div id="feedback-${qIdx}" class="hidden mt-2 p-3 rounded-lg text-xs"></div>
+            </div>
+        `;
+    });
+}
+
+function toggleRead(idx) {
+    const el = document.getElementById(`read-${idx}`);
+    el.classList.toggle('hidden');
+}
+
+function speakLesson(idx) {
+    if (!('speechSynthesis' in window)) {
+        alert('आपके ब्राउज़र में TTS support नहीं है / Browser does not support TTS');
+        return;
+    }
+    const lesson = curriculum[currentTrack].classes[currentClass].lessons[idx];
+    const text = currentLang === 'hi' ? lesson.read.hi : lesson.read.en;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
+    utter.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+}
+
+function checkAnswer(quizIdx, selectedIdx, correctIdx, explanationEncoded) {
+    const explanation = decodeURIComponent(explanationEncoded);
+    const feedbackDiv = document.getElementById(`feedback-${quizIdx}`);
+    const buttons = document.querySelectorAll(`.quiz-opt-${quizIdx}`);
+    buttons.forEach(btn => btn.disabled = true);
+
+    if (selectedIdx === correctIdx) {
+        buttons[selectedIdx].className = "w-full text-left p-3 rounded-lg border text-xs font-medium mb-2 bg-emerald-100 border-emerald-500 text-emerald-900 font-bold";
+        feedbackDiv.className = "mt-2 p-3 rounded-lg text-xs bg-emerald-50 border border-emerald-200 text-emerald-800";
+        feedbackDiv.innerHTML = `✅ <strong>सही! / Correct!</strong> +20 अंक<br><span class="text-slate-600 mt-1 block">${explanation}</span>`;
+        updateScore(20);
+        saveProgress(20, 'quiz', quizIdx);
+    } else {
+        buttons[selectedIdx].className = "w-full text-left p-3 rounded-lg border text-xs font-medium mb-2 bg-red-100 border-red-500 text-red-900 font-bold";
+        buttons[correctIdx].className = "w-full text-left p-3 rounded-lg border text-xs font-medium mb-2 bg-emerald-100 border-emerald-500 text-emerald-900 font-bold";
+        feedbackDiv.className = "mt-2 p-3 rounded-lg text-xs bg-red-50 border border-red-200 text-red-800";
+        feedbackDiv.innerHTML = `❌ <strong>गलत! / Wrong!</strong> सही उत्तर हरे रंग में<br><span class="text-slate-600 mt-1 block">${explanation}</span>`;
+    }
+    feedbackDiv.classList.remove('hidden');
+}
+
+function completeTask(checkbox, taskId) {
+    if (checkbox.checked) {
+        updateScore(10);
+        saveProgress(10, 'task', taskId);
+    }
+}
+
+function updateScore(points) {
+    userTotalPoints += points;
+    document.getElementById('score-display').innerText = userTotalPoints;
+}
+
+async function saveProgress(points, type, id) {
+    try {
+        await fetch('/api/progress/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                points, track: currentTrack, classNum: currentClass,
+                taskOrQuizId: id, type
+            })
+        });
+    } catch (err) {
+        localStorage.setItem('fmh_score', userTotalPoints);
+    }
+}
+
+async function loadProgress() {
+    try {
+        const res = await fetch('/api/progress');
+        const data = await res.json();
+        userTotalPoints = data.totalPoints || 0;
+    } catch (e) {
+        userTotalPoints = parseInt(localStorage.getItem('fmh_score')) || 0;
+    }
+    document.getElementById('score-display').innerText = userTotalPoints;
+}
+
+/* ---------- GEMINI AI ---------- */
+
+async function sendToGemini() {
+    const apiKey = document.getElementById('gemini-key').value.trim();
+    const userInput = document.getElementById('user-input').value.trim();
+    const chat = document.getElementById('chat-messages');
+
+    if (!apiKey) { alert("⚠️ पहले Gemini API Key डालें / Enter Gemini API Key first"); return; }
+    if (!userInput) return;
+
+    chat.innerHTML += `<div class="bg-indigo-600 text-white p-2 rounded-lg text-xs ml-auto max-w-[85%] fade-in"><b>आप:</b> ${escapeHtml(userInput)}</div>`;
+    document.getElementById('user-input').value = '';
+    chat.scrollTop = chat.scrollHeight;
+
+    const loadId = 'load-' + Date.now();
+    chat.innerHTML += `<div id="${loadId}" class="bg-slate-200 text-slate-700 p-2 rounded-lg text-xs mr-auto max-w-[85%] animate-pulse">🤖 AI सोच रहा है...</div>`;
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: `You are a friendly AI teacher for children (ages 5-20) in India, teaching financial freedom, AI, coding, computer skills, and freelancing. Always answer in very simple Hindi (with some English words in brackets for technical terms). Keep responses short (under 150 words), encouraging, and use emojis. Question: ${userInput}`
+                        }]
+                    }]
+                })
+            }
+        );
+
+        const data = await response.json();
+        document.getElementById(loadId).remove();
+
+        if (data.error) throw new Error(data.error.message);
+
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, no response.";
+        chat.innerHTML += `<div class="bg-emerald-50 text-emerald-900 p-2 rounded-lg text-xs mr-auto max-w-[85%] border border-emerald-200 fade-in whitespace-pre-wrap"><b>🤖 AI:</b> ${escapeHtml(reply)}</div>`;
+    } catch (error) {
+        document.getElementById(loadId).remove();
+        chat.innerHTML += `<div class="bg-red-50 text-red-900 p-2 rounded-lg text-xs mr-auto max-w-[85%]">⚠️ Error: ${escapeHtml(error.message || 'API/Network issue')}</div>`;
+    }
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/* ---------- INIT ---------- */
+
+document.getElementById('chat-messages').innerHTML = `
+    <div class="bg-indigo-50 text-indigo-900 p-2 rounded-lg text-xs border border-indigo-200">
+        नमस्ते! मैं आपका AI शिक्षक हूँ 🤖<br>
+        Hi! I'm your AI teacher.<br><br>
+        पूछें: पैसे की बचत, कोडिंग, AI, कंप्यूटर, फ्रीलांसिंग...
+    </div>
+`;
+
+window.onload = () => {
+    loadProgress();
+    switchTrack(1);
+};
+</script>
+</body>
+  </html>
